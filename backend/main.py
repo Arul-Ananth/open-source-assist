@@ -1,16 +1,62 @@
-# This is a sample Python script.
+"""FastAPI main application entrypoint for open-source-assist."""
 
-# Press Shift+F10 to execute it or replace it with your code.
-# Press Double Shift to search everywhere for classes, files, tool windows, actions, and settings.
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from backend.core.config import settings
+from backend.services.qdrant_service import qdrant_service
+from backend.api.routes.search import router as search_router
 
 
-def print_hi(name):
-    # Use a breakpoint in the code line below to debug your script.
-    print(f'Hi, {name}')  # Press Ctrl+F8 to toggle the breakpoint.
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+    """Application lifespan context manager for startup and shutdown hooks."""
+    # Startup: Ensure Qdrant collection and payload indexes exist
+    try:
+        await qdrant_service.ensure_collection_exists()
+    except Exception as exc:
+        # In testing or standalone offline environments, allow graceful continuation
+        print(f"Notice: Qdrant startup collection check: {exc}")
+
+    yield
+
+    # Shutdown: Cleanly close client connections
+    await qdrant_service.close()
 
 
-# Press the green button in the gutter to run the script.
-if __name__ == '__main__':
-    print_hi('PyCharm')
+app = FastAPI(
+    title="Open Source Assist API",
+    version="0.1.0",
+    description=(
+        "Production-grade backend for semantic search, exploration, and mentorship "
+        "across open-source repositories using Qdrant vector database and AI workflows."
+    ),
+    lifespan=lifespan,
+    docs_url="/docs",
+    redoc_url="/redoc",
+)
 
-# See PyCharm help at https://www.jetbrains.com/help/pycharm/
+# CORS middleware for frontend React / Vite client
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Register API routers
+app.include_router(search_router, prefix=settings.API_V1_PREFIX)
+
+
+@app.get("/health", tags=["Health"])
+async def health_check() -> dict[str, str]:
+    """Health check endpoint for container orchestrators and load balancers."""
+    return {"status": "healthy", "service": "open-source-assist-backend"}
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)

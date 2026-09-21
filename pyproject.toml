@@ -3,12 +3,24 @@ name = "open-source-assist"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+    "fastapi>=0.141.1",
+    "fastembed>=0.8.0",
+    "httpx>=0.28.1",
     "langchain",
     "langgraph",
+    "pydantic-settings>=2.15.0",
+    "qdrant-client>=1.19.1",
     "sqlalchemy",
+    "uvicorn[standard]>=0.53.0",
 ]
 
 [dependency-groups]
 dev = [
     "pytest",
+    "pytest-asyncio>=1.4.0",
 ]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+asyncio_mode = "auto"
+
