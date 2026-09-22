@@ -2,7 +2,7 @@
 
 This guide explains how other modules in the project (Data Ingestion, RAG, and Auth) interface with the search subsystem.
 
-> ℹ️ **REST API Endpoints**: For external HTTP endpoints, request/response JSON schemas, and OpenAPI contracts, see the root [API_CONTRACT.md](../../API_CONTRACT.md).
+> ℹ️ **REST API Endpoints**: For external HTTP endpoints, request/response JSON schemas, and OpenAPI contracts, see the root [API_CONTRACT.md](../API_CONTRACT.md).
 
 ---
 
@@ -45,25 +45,10 @@ async def run_ingestion_pipeline():
     print(f"Upserted {response.inserted_count} repositories in {response.duration_ms}ms")
 ```
 
-### Method B: Via Internal HTTP Endpoint (`POST /api/v1/internal/ingest`)
+### Method B: Via Internal HTTP Endpoint
 If the ingestion pipeline is written in another language or runs as an isolated microservice, send an HTTP POST request to:
 * **Endpoint**: `POST /api/v1/internal/ingest`
-* Refer to [API_CONTRACT.md](../../API_CONTRACT.md#2-batch-repository-ingestion-internal) for the exact JSON payload.
-
-> [!CAUTION]
-> ### 🔒 Security & Authorization Mandate for Ingestion
-> **Should `/api/v1/internal/ingest` be public? ABSOLUTELY NOT.**
-> * **Why**: Unlike `/api/v1/search` (which is read-only), `/api/v1/internal/ingest` writes, modifies, and overwrites vector embeddings and metadata in Qdrant. Leaving this endpoint unauthenticated in production would allow arbitrary external actors to poison the search index, inject malicious repositories, or cause a denial of service.
-> * **Required Authorization**:
->   1. **Admin Role**: Only users with authenticated `admin` privileges may invoke this endpoint via an Admin Bearer Token:
->      ```http
->      Authorization: Bearer <admin_jwt_token>
->      ```
->   2. **Internal Service Secret (For Automated Pipelines)**: If the teammate's ingestion worker runs as an autonomous background daemon (e.g. cron worker, Airflow, or GitHub Action), it must supply an internal shared secret header:
->      ```http
->      X-Internal-Secret: <INTERNAL_API_SECRET>
->      ```
-> * **Integration Coordination**: The **Auth Teammate** must enforce this inside the dependency injector (e.g. `require_admin_or_internal_service`), ensuring any unauthorized requests receive `401 Unauthorized` or `403 Forbidden`.
+* Refer to [API_CONTRACT.md](../API_CONTRACT.md#2-batch-repository-ingestion-internal) for the exact JSON payload.
 
 ---
 
@@ -102,3 +87,4 @@ async def get_optional_current_user(
 When the Auth teammate finishes the JWT/session service:
 1. Replace this stub with their JWT verification logic.
 2. The search route will automatically receive the authenticated user's `user_id` to log search history or apply user-specific preferred languages without changing the search router code.
+
