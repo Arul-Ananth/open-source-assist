@@ -10,10 +10,11 @@ This module provides an asynchronous, high-throughput semantic search engine tha
 
 | Document | Description |
 | :--- | :--- |
-| **[1. Architecture & Design](architecture.md)** | System architecture, separation of concerns, concurrency model, Python GIL avoidance, and Qdrant Server topology. |
-| **[2. Search & Ranking Engine](search_and_ranking.md)** | Mathematical formulation of semantic similarity, logarithmic popularity normalization, and the Strategy pattern. |
-| **[3. API & Integration Guide](api_and_integration.md)** | Detailed API contracts for search and ingestion, teammate collaboration specs, and Pydantic schema references. |
-| **[4. Deployment & Operations](deployment_and_operations.md)** | Docker Compose configuration, Qdrant Cloud deployment, environment configuration, database seeding, and testing with `uv`. |
+| **[1. Architecture & Design](doc/search_module/architecture.md)** | System architecture, separation of concerns, concurrency model, Python GIL avoidance, and Qdrant Server topology. |
+| **[2. Search & Ranking Engine](doc/search_module/search_and_ranking.md)** | Mathematical formulation of semantic similarity, logarithmic popularity normalization, and the Strategy pattern. |
+| **[3. Teammate Integration Guide](doc/integration/search_integration_backend.md)** | Integration guide for teammate modules (Ingestion, RAG, and Auth hooks). |
+| **[4. Deployment & Operations](doc/deployment_and_operations.md)** | Docker Compose configuration, Qdrant Cloud deployment, environment configuration, database seeding, and testing with `uv`. |
+| **[5. API Contract & Changelog](API_CONTRACT.md)** | Formal versioned API contracts, HTTP endpoints, status codes, and request/response JSON schemas. |
 
 ---
 
