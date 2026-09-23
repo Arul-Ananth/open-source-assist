@@ -23,22 +23,28 @@ class Settings(BaseSettings):
 
     # Environment
     ENVIRONMENT: Literal["development", "testing", "production"] = Field(
-        default="development",
         description="Deployment environment name.",
     )
-    API_V1_PREFIX: str = Field(
-        default="/api/v1",
-        description="URL prefix for version 1 API routes.",
-    )
+    API_V1_PREFIX: str = Field(description="URL prefix for version 1 API routes.")
+
+    # Authentication and relational database configuration
+    DATABASE_URL: str = Field(description="Async SQLAlchemy connection URL for PostgreSQL.")
+    JWT_SECRET_KEY: str = Field(description="Secret used to sign access tokens.")
+    JWT_ALGORITHM: str = Field(description="JWT signing algorithm.")
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(ge=1, description="Access-token lifetime in minutes.")
+    OTP_EXPIRE_MINUTES: int = Field(ge=1, description="Password-reset OTP lifetime in minutes.")
+    SERVER_HOST: str = Field(description="Host interface for the Uvicorn server.")
+    SERVER_PORT: int = Field(ge=1, le=65535, description="Port for the Uvicorn server.")
+    SERVER_RELOAD: bool = Field(description="Enable Uvicorn auto-reload.")
+    CORS_ALLOW_ORIGINS: str = Field(description="Comma-separated allowed CORS origins.")
+    CORS_ALLOW_CREDENTIALS: bool = Field(description="Whether CORS credentials are allowed.")
 
     # Qdrant Database Configuration (Server Only: Local Docker, Self-Hosted, or Qdrant Cloud)
     QDRANT_URL: str = Field(
-        default="http://localhost:6333",
         description="Required Qdrant Server URL (e.g., http://localhost:6333 or Qdrant Cloud URL).",
     )
     QDRANT_API_KEY: str | None = Field(
-        default=None,
-        description="API Key for Qdrant Cloud or protected server instances.",
+        default=None, description="Optional API key for Qdrant Cloud or protected servers."
     )
 
     @field_validator("QDRANT_API_KEY", mode="before")
@@ -47,44 +53,17 @@ class Settings(BaseSettings):
         if v is not None and str(v).strip() == "":
             return None
         return v
-    QDRANT_PREFER_GRPC: bool = Field(
-        default=False,
-        description="Whether to use gRPC protocol for faster binary serialization to Qdrant Server.",
-    )
-    QDRANT_COLLECTION_NAME: str = Field(
-        default="open_source_repositories",
-        description="Collection name in Qdrant for storing repository embeddings.",
-    )
-    QDRANT_VECTOR_SIZE: int = Field(
-        default=384,
-        description="Vector dimension size matching the embedding model.",
-    )
+    QDRANT_PREFER_GRPC: bool = Field(description="Whether to use Qdrant gRPC transport.")
+    QDRANT_COLLECTION_NAME: str = Field(description="Qdrant collection name.")
+    QDRANT_VECTOR_SIZE: int = Field(description="Vector dimension matching the embedding model.")
 
     # Embedding Configuration
-    EMBEDDING_MODEL_NAME: str = Field(
-        default="BAAI/bge-small-en-v1.5",
-        description="FastEmbed model name for generating dense embeddings.",
-    )
+    EMBEDDING_MODEL_NAME: str = Field(description="FastEmbed model name for generating embeddings.")
 
     # Search & Scoring Hyperparameters
-    DEFAULT_POPULARITY_WEIGHT: float = Field(
-        default=0.3,
-        ge=0.0,
-        le=1.0,
-        description="Default weight alpha assigned to popularity during search reranking.",
-    )
-    CANDIDATE_SEARCH_LIMIT: int = Field(
-        default=100,
-        ge=10,
-        le=500,
-        description="Number of semantic candidates retrieved from Qdrant prior to popularity reranking.",
-    )
-    DEFAULT_PAGE_LIMIT: int = Field(
-        default=20,
-        ge=1,
-        le=100,
-        description="Default number of repositories returned per page.",
-    )
+    DEFAULT_POPULARITY_WEIGHT: float = Field(ge=0.0, le=1.0, description="Default popularity weight.")
+    CANDIDATE_SEARCH_LIMIT: int = Field(ge=10, le=500, description="Qdrant candidate search limit.")
+    DEFAULT_PAGE_LIMIT: int = Field(ge=1, le=100, description="Default result page size.")
 
 
 settings = Settings()

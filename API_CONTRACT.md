@@ -110,3 +110,32 @@ This document tracks all FastAPI endpoint contracts, request payloads, and respo
   }
   ```
 
+---
+
+## [v0.2.0] - 2026-09-23: Authentication Endpoints
+
+### 4. User Signup
+* **Endpoint**: `POST /api/v1/auth/signup`
+* **Status**: `201 Created`
+* **Request Body**: `{ "email": "user@example.com", "password": "password123", "confirm_password": "password123" }`
+* **Response Body**: `{ "message": "User registered successfully" }`
+
+### 5. User Login
+* **Endpoint**: `POST /api/v1/auth/login`
+* **Status**: `200 OK`
+* **Request Body**: `{ "email": "user@example.com", "password": "password123" }`
+* **Response Body**: `{ "access_token": "<jwt>", "token_type": "bearer" }`
+
+### 6. Request Password Reset
+* **Endpoint**: `POST /api/v1/auth/forgot-password`
+* **Status**: `200 OK`
+* **Request Body**: `{ "email": "user@example.com" }`
+* **Response Body**: `{ "message": "If the account exists, a reset code has been sent" }`
+
+### 7. Reset Password
+* **Endpoint**: `POST /api/v1/auth/reset-password`
+* **Status**: `200 OK`
+* **Request Body**: `{ "email": "user@example.com", "otp": "123456", "new_password": "newpassword123" }`
+* **Response Body**: `{ "message": "Password reset successfully" }`
+* OTPs expire after five minutes and can be redeemed only once.
+
