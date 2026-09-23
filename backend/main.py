@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from backend.core.config import settings
 from backend.services.qdrant_service import qdrant_service
 from backend.api.routes.search import router as search_router
+from backend.api.routes.learning import router as learning_router
 
 
 @asynccontextmanager
@@ -48,6 +49,7 @@ app.add_middleware(
 
 # Register API routers
 app.include_router(search_router, prefix=settings.API_V1_PREFIX)
+app.include_router(learning_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/health", tags=["Health"])

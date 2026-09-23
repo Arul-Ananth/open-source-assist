@@ -86,6 +86,16 @@ class Settings(BaseSettings):
         description="Default number of repositories returned per page.",
     )
 
+    # Gemini API Configuration for Learning Materials Agent
+    GEMINI_API_KEY: str | None = Field(
+        default=None,
+        description="API key for Google Gemini API services.",
+    )
+    GEMINI_MODEL: str = Field(
+        default="gemini-3.5-flash",
+        description="Gemini LLM model identifier for AI agents.",
+    )
+
 
 settings = Settings()
 

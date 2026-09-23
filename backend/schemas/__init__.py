@@ -12,6 +12,15 @@ from backend.schemas.ingest import (
     BatchRepoIngestRequest,
     BatchRepoIngestResponse,
 )
+from backend.schemas.learning import (
+    SkillLevel,
+    MaterialType,
+    CitedMaterial,
+    LearningModule,
+    LearningMaterialRequest,
+    LearningMaterialResponse,
+    StructuredAgentOutput,
+)
 
 __all__ = [
     "RepoSearchFilter",
@@ -22,5 +31,13 @@ __all__ = [
     "RepoIngestItem",
     "BatchRepoIngestRequest",
     "BatchRepoIngestResponse",
+    "SkillLevel",
+    "MaterialType",
+    "CitedMaterial",
+    "LearningModule",
+    "LearningMaterialRequest",
+    "LearningMaterialResponse",
+    "StructuredAgentOutput",
 ]
+
 
