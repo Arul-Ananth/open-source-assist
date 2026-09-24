@@ -2,10 +2,16 @@
 
 import hashlib
 import hmac
-
+import bcrypt
 from passlib.context import CryptContext
 
 from backend.core.config import settings
+
+# Fix passlib bug with bcrypt >= 4.0.0 looking for bcrypt.__about__.__version__
+if not hasattr(bcrypt, "__about__"):
+    bcrypt.__about__ = type(
+        "about", (), {"__version__": getattr(bcrypt, "__version__", "4.0.0")}
+    )()
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

@@ -12,6 +12,16 @@ from backend.schemas.ingest import (
     BatchRepoIngestRequest,
     BatchRepoIngestResponse,
 )
+from backend.schemas.auth import (
+    SignupRequest,
+    VerifySignupOTPRequest,
+    LoginRequest,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
+    TokenResponse,
+    AuthResponse,
+    MessageResponse,
+)
 
 __all__ = [
     "RepoSearchFilter",
@@ -22,5 +32,12 @@ __all__ = [
     "RepoIngestItem",
     "BatchRepoIngestRequest",
     "BatchRepoIngestResponse",
+    "SignupRequest",
+    "VerifySignupOTPRequest",
+    "LoginRequest",
+    "ForgotPasswordRequest",
+    "ResetPasswordRequest",
+    "TokenResponse",
+    "AuthResponse",
+    "MessageResponse",
 ]
-
