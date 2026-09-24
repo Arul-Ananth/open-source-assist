@@ -1,19 +1,16 @@
 import * as React from 'react'
 import { ArrowLeft, ArrowRight, Check, GitBranch, KeyRound, LogIn, UserPlus } from 'lucide-react'
-import { Dialog } from '@/components/ui/dialog'
-import { Button } from '@/components/ui/button'
+import { Dialog, Button, Input } from '@/components/ui'
 
-type Mode = 'login' | 'signup'
-type Screen = Mode | 'forgot'
+export type AuthMode = 'login' | 'signup'
+export type AuthScreen = AuthMode | 'forgot'
 
-interface AuthDialogProps {
+export interface AuthDialogProps {
   open: boolean
   onClose: () => void
   /** Which tab is shown when the dialog opens. */
-  initialMode?: Mode
+  initialMode?: AuthMode
 }
-
-const inputClass = 'input-field'
 
 function Field(props: {
   label: string
@@ -31,7 +28,7 @@ function Field(props: {
       <label htmlFor={props.id} className="block text-[11px] font-semibold text-foreground">
         {props.label}
       </label>
-      <input
+      <Input
         ref={props.inputRef}
         id={props.id}
         name={props.id}
@@ -39,8 +36,7 @@ function Field(props: {
         placeholder={props.placeholder}
         autoComplete={props.autoComplete}
         required={props.required ?? true}
-        aria-invalid={props.error ? true : undefined}
-        className={inputClass}
+        error={props.error}
       />
       {props.hint && !props.error && (
         <p className="text-[11px] leading-snug text-muted-foreground">{props.hint}</p>
@@ -52,12 +48,11 @@ function Field(props: {
   )
 }
 
-export default function AuthDialog({ open, onClose, initialMode = 'login' }: AuthDialogProps) {
-  const [screen, setScreen] = React.useState<Screen>(initialMode)
+export function AuthDialog({ open, onClose, initialMode = 'login' }: AuthDialogProps) {
+  const [screen, setScreen] = React.useState<AuthScreen>(initialMode)
   const [errors, setErrors] = React.useState<Record<string, string>>({})
   const [sentTo, setSentTo] = React.useState<string | null>(null)
   const [showSent, setShowSent] = React.useState(false)
-  const formRef = React.useRef<HTMLFormElement>(null)
 
   // Reset to the requested tab every time the dialog opens.
   React.useEffect(() => {
@@ -71,38 +66,31 @@ export default function AuthDialog({ open, onClose, initialMode = 'login' }: Aut
   const isLogin = screen === 'login'
   const isSignup = screen === 'signup'
 
-  const validate = (): boolean => {
-    const form = formRef.current
-    if (!form) return true
+  const validate = (formData: FormData): boolean => {
     const next: Record<string, string> = {}
 
     if (isSignup) {
-      const username = (form.elements.namedItem('signup-username') as HTMLInputElement).value
-      if (username.trim().length < 3) next['signup-username'] = 'At least 3 characters.'
+      const username = String(formData.get('signup-username') ?? '').trim()
+      if (username.length < 3) next['signup-username'] = 'At least 3 characters.'
 
-      const password = form.elements.namedItem('signup-password') as HTMLInputElement
-      const confirm = form.elements.namedItem('signup-confirm') as HTMLInputElement
-      if (password.value.length < 8) {
+      const password = String(formData.get('signup-password') ?? '')
+      const confirm = String(formData.get('signup-confirm') ?? '')
+      if (password.length < 8) {
         next['signup-password'] = 'Use at least 8 characters.'
-      } else if (confirm.value !== password.value) {
+      } else if (confirm !== password) {
         next['signup-confirm'] = "Passwords don't match."
       }
     }
 
     setErrors(next)
-    const firstKey = Object.keys(next)[0]
-    if (firstKey) {
-      const el = form.elements.namedItem(firstKey)
-      if (el instanceof HTMLInputElement) el.focus()
-      return false
-    }
-    return true
+    return Object.keys(next).length === 0
   }
 
   const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    if (!validate()) return
-    // TODO: wire up real authentication here.
+    const formData = new FormData(e.currentTarget)
+    if (!validate(formData)) return
+    // Real authentication integration point
     onClose()
   }
 
@@ -113,7 +101,7 @@ export default function AuthDialog({ open, onClose, initialMode = 'login' }: Aut
     setShowSent(true)
   }
 
-  const switchTo = (next: Screen) => {
+  const switchTo = (next: AuthScreen) => {
     setErrors({})
     setSentTo(null)
     setShowSent(false)
@@ -144,6 +132,8 @@ export default function AuthDialog({ open, onClose, initialMode = 'login' }: Aut
             <button
               type="button"
               role="tab"
+              id="tab-login"
+              aria-controls="panel-auth"
               aria-selected={isLogin}
               onClick={() => switchTo('login')}
               className={`inline-flex h-8 items-center justify-center gap-2 rounded-md text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
@@ -156,6 +146,8 @@ export default function AuthDialog({ open, onClose, initialMode = 'login' }: Aut
             <button
               type="button"
               role="tab"
+              id="tab-signup"
+              aria-controls="panel-auth"
               aria-selected={isSignup}
               onClick={() => switchTo('signup')}
               className={`inline-flex h-8 items-center justify-center gap-2 rounded-md text-sm font-semibold transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
@@ -220,9 +212,15 @@ export default function AuthDialog({ open, onClose, initialMode = 'login' }: Aut
           </div>
         )}
 
-        {/* Login / signup */}
+        {/* Login / signup tabpanel */}
         {isForgotScreen(screen) && (
-          <div key={screen} className="animate-fade-up">
+          <div
+            key={screen}
+            id="panel-auth"
+            role="tabpanel"
+            aria-labelledby={isLogin ? 'tab-login' : 'tab-signup'}
+            className="animate-fade-up"
+          >
             <h2 className="mt-4 text-xl font-bold tracking-tight">
               {isLogin ? 'Welcome back' : 'Create your account'}
             </h2>
@@ -232,7 +230,7 @@ export default function AuthDialog({ open, onClose, initialMode = 'login' }: Aut
                 : 'Join free — save favorite repos and track your first merged PR.'}
             </p>
 
-            <form ref={formRef} onSubmit={handleSubmit} className="mt-3 space-y-3" noValidate>
+            <form onSubmit={handleSubmit} className="mt-3 space-y-3" noValidate>
               {isSignup && (
                 <Field
                   label="Username"
@@ -312,9 +310,9 @@ export default function AuthDialog({ open, onClose, initialMode = 'login' }: Aut
               )}
 
               <Button type="submit" className="h-9 w-full">
-              {isLogin ? 'Log in' : 'Create account'}
-              <ArrowRight className="size-4" aria-hidden="true" />
-            </Button>
+                {isLogin ? 'Log in' : 'Create account'}
+                <ArrowRight className="size-4" aria-hidden="true" />
+              </Button>
             </form>
 
             {/* Divider + GitHub OAuth */}
@@ -354,6 +352,9 @@ export default function AuthDialog({ open, onClose, initialMode = 'login' }: Aut
   )
 }
 
-function isForgotScreen(screen: Screen): screen is 'login' | 'signup' {
+function isForgotScreen(screen: AuthScreen): screen is 'login' | 'signup' {
   return screen !== 'forgot'
 }
+
+export default AuthDialog
+

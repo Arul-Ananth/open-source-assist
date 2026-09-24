@@ -1,58 +1,8 @@
-import {
-  Bot,
-  CalendarDays,
-  Compass,
-  Map,
-  MessageSquare,
-  ShieldCheck,
-  Trophy,
-  UserRound,
-} from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
-import { Reveal } from '@/components/Reveal'
+import { Card, CardContent, Badge } from '@/components/ui'
+import { Reveal } from '@/components/shared'
+import { FEATURE_MODULES, TRUST_FEATURE } from '@/data'
 
-const modules = [
-  {
-    icon: Compass,
-    title: 'Explore',
-    body: 'A GitHub-Explore-style feed of beginner-friendly repositories, tuned to the languages and labels you care about.',
-    chips: ['good-first-issue', 'trending', 'beginner-only'],
-    wide: true,
-  },
-  {
-    icon: Map,
-    title: 'AI Roadmap',
-    body: 'Tell it what you know and what you want to learn. It plans the route from "never contributed" to "regular around here". Re-plans when life happens.',
-  },
-  {
-    icon: Trophy,
-    title: 'Quests & Rewards',
-    body: 'Points and badges for real milestones. Your first PR, your first review, your first merge. Yes, it works a bit like LeetCode.',
-  },
-  {
-    icon: CalendarDays,
-    title: 'Events',
-    body: 'GSSoC, Hacktoberfest, hackathons, deadlines. If it is happening in open source this month, it is on the calendar.',
-  },
-  {
-    icon: UserRound,
-    title: 'Profile',
-    body: 'Your contribution graph, badges, XP and quest history in one view. It is the profile you would have built anyway, minus the spreadsheet.',
-  },
-  {
-    icon: MessageSquare,
-    title: 'Forum',
-    body: 'Ask anything, no question too basic. Other first-timers answer fast, and maintainers show up for the tricky ones.',
-  },
-  {
-    icon: Bot,
-    title: 'AI Chatbot',
-    body: 'Ask why a function exists or what the issue actually means. It answers from the real repo, not vibes.',
-  },
-]
-
-export default function Features() {
+export function Features() {
   return (
     <section id="modules" className="mx-auto max-w-[1240px] scroll-mt-24 px-5 py-24 sm:px-8">
       <Reveal>
@@ -68,7 +18,7 @@ export default function Features() {
       </Reveal>
 
       <div className="mt-12 grid grid-cols-1 gap-5 md:grid-cols-3">
-        {modules.map((module, i) => (
+        {FEATURE_MODULES.map((module, i) => (
           <Reveal key={module.title} delay={(i % 3) * 90} className={module.wide ? 'md:col-span-2' : undefined}>
             <Card className="h-full">
               <CardContent className="p-6 pt-6">
@@ -97,18 +47,22 @@ export default function Features() {
             <CardContent className="p-6 pt-6">
               <div className="flex items-center gap-3">
                 <span className="bg-gradient-soft flex size-9 items-center justify-center rounded-lg text-accent-text">
-                  <ShieldCheck className="size-5" aria-hidden="true" />
+                  <TRUST_FEATURE.icon className="size-5" aria-hidden="true" />
                 </span>
-                <h3 className="text-lg font-semibold">Private by default</h3>
+                <h3 className="text-lg font-semibold">{TRUST_FEATURE.title}</h3>
               </div>
               <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-                Your code stays on your machine unless you say otherwise. We do
-                not train on your repos. Not ever, not "anonymized", not with
-                an asterisk.
+                {TRUST_FEATURE.body}
               </p>
-              <div className="mt-5 flex flex-wrap gap-2">
-                <Badge variant="secondary">no data selling</Badge>
-              </div>
+              {TRUST_FEATURE.chips && (
+                <div className="mt-5 flex flex-wrap gap-2">
+                  {TRUST_FEATURE.chips.map((chip) => (
+                    <Badge key={chip} variant="secondary">
+                      {chip}
+                    </Badge>
+                  ))}
+                </div>
+              )}
             </CardContent>
           </Card>
         </Reveal>
@@ -116,3 +70,5 @@ export default function Features() {
     </section>
   )
 }
+
+export default Features
