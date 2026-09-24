@@ -22,12 +22,11 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, EmptyState } from '@/components/ui'
 import { useAuthStore } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 
-interface DashboardProps {
+interface DashboardPageProps {
   onLogout: () => void
 }
 
@@ -60,28 +59,22 @@ function Slot({ label, className }: { label: string; className?: string }) {
   )
 }
 
-/** Blank state for modules that aren't built yet. */
+/** Blank state for modules that aren't built yet (uses the shared EmptyState). */
 function BlankModule({ id }: { id: SectionId }) {
   const section = navItems.find((item) => item.id === id)
   const Icon = section?.icon ?? LayoutDashboard
 
   return (
-    <div className="animate-fade-up space-y-6">
+    <div className="animate-fade-up space-y-2">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">{section?.label}</h1>
         <p className="mt-1 text-sm text-muted-foreground">This module is coming soon.</p>
       </div>
-      <div className="flex min-h-[420px] items-center justify-center rounded-xl border border-dashed border-border bg-background/40">
-        <div className="flex flex-col items-center gap-3 p-8 text-center">
-          <span className="flex size-12 items-center justify-center rounded-xl bg-accent/10 text-accent-text">
-            <Icon className="size-6" aria-hidden="true" />
-          </span>
-          <p className="text-sm font-semibold">{section?.label}</p>
-          <p className="max-w-[36ch] text-xs leading-relaxed text-muted-foreground">
-            Nothing here yet — this section is reserved for the {section?.label.toLowerCase()} module.
-          </p>
-        </div>
-      </div>
+      <EmptyState
+        icon={Icon}
+        title={section?.label ?? 'Module'}
+        description={`Nothing here yet — this section is reserved for the ${(section?.label ?? 'module').toLowerCase()} module.`}
+      />
     </div>
   )
 }
@@ -241,7 +234,7 @@ function OverviewSection() {
   )
 }
 
-export default function Dashboard({ onLogout }: DashboardProps) {
+export default function DashboardPage({ onLogout }: DashboardPageProps) {
   const user = useAuthStore((s) => s.user)
   const [section, setSection] = useState<SectionId>('overview')
   const [mobileOpen, setMobileOpen] = useState(false)

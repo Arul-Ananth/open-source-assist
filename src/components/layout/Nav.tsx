@@ -97,10 +97,11 @@ export function Nav({ onOpenAuth, links = NAV_LINKS }: NavProps) {
           <span className="text-base font-bold tracking-tight">OpenSource Assist</span>
         </a>
 
-        {/* Desktop links */}
+        {/* Desktop links — fixed h-9 so the pill shares the exact centerline
+            of the brand row and buttons (content-driven height sat lower) */}
         <nav
           aria-label="Primary"
-          className="hidden items-center gap-1 rounded-full border border-border bg-surface px-2 py-1.5 shadow-soft md:flex"
+          className="hidden h-9 items-center gap-1 rounded-full border border-border bg-surface px-2 shadow-soft md:flex"
         >
           {links.map((link) => (
             <a key={link.href} href={link.href} className="nav-link" data-active={active === link.href}>

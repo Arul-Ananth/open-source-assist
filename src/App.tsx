@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { HomePage } from '@/page'
-import Dashboard from '@/components/Dashboard'
+import { DashboardPage, HomePage } from '@/page'
 import { useAuthStore } from '@/lib/auth-store'
 
 export default function App() {
@@ -32,7 +31,7 @@ export default function App() {
   if (user) {
     return (
       <QueryClientProvider client={queryClient}>
-        <Dashboard onLogout={handleLogout} />
+        <DashboardPage onLogout={handleLogout} />
       </QueryClientProvider>
     )
   }
