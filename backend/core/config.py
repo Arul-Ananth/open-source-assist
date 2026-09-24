@@ -61,6 +61,17 @@ class Settings(BaseSettings):
     CORS_ALLOW_CREDENTIALS: bool = Field(
         default=True, description="Whether CORS credentials are allowed."
     )
+    SMTP_HOST: str = Field(default="localhost", description="SMTP server hostname.")
+    SMTP_PORT: int = Field(default=587, ge=1, le=65535, description="SMTP server port.")
+    SMTP_USERNAME: str = Field(default="", description="SMTP authentication username.")
+    SMTP_PASSWORD: str = Field(default="", description="SMTP authentication password.")
+    MAIL_FROM: str = Field(default="", description="Email address shown as the sender.")
+    SMTP_START_TLS: bool = Field(
+        default=True, description="Upgrade the SMTP connection with STARTTLS."
+    )
+    SMTP_USE_TLS: bool = Field(
+        default=False, description="Use implicit TLS instead of STARTTLS."
+    )
 
     # Qdrant Database Configuration (Server Only: Local Docker, Self-Hosted, or Qdrant Cloud)
     QDRANT_URL: str = Field(
