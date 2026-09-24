@@ -184,7 +184,7 @@ def _build_fallback_output(
 
 
 async def generate_materials_node(state: LearningAgentState) -> dict[str, Any]:
-    """Node: Invoke Gemini API with structured output schema, or fallback to structured offline generator."""
+    """Node: Invoke Gemini model via LiteLLM with structured output schema, or fallback to structured offline generator."""
     topic = state["topic"]
     skill_level = state["skill_level"]
     user_context = state.get("user_context")
@@ -196,49 +196,50 @@ async def generate_materials_node(state: LearningAgentState) -> dict[str, Any]:
 
     if settings.GEMINI_API_KEY:
         try:
-            from langchain_google_genai import ChatGoogleGenerativeAI
+            import litellm
 
-            llm = ChatGoogleGenerativeAI(
-                model=settings.GEMINI_MODEL,
-                google_api_key=settings.GEMINI_API_KEY,
+            model_identifier = (
+                settings.GEMINI_MODEL
+                if settings.GEMINI_MODEL.startswith("gemini/")
+                else f"gemini/{settings.GEMINI_MODEL}"
+            )
+
+            prompt_system = (
+                "You are an expert technical curriculum architect and learning agent. "
+                "Your mission is to analyze the requested topic and generate skill-tailored online learning materials with citeable sources. "
+                f"Adapt all explanations, module depth, and material recommendations strictly according to the target skill level ({skill_level.value}). "
+                "Provide real, high-quality, citeable learning resource links (official documentation, tutorials, technical articles, or interactive courses)."
+            )
+
+            prompt_user = (
+                f"Topic: {topic}\n"
+                f"Target Skill Level: {skill_level.value}\n"
+                f"Skill Analysis & Calibration: {analysis}\n"
+                f"User Context / Background: {user_context or 'Not specified'}\n"
+                f"Preferred Material Types: {[t.value for t in preferred_types] if preferred_types else 'All online learning material types'}\n"
+                f"Desired Resource Limit: {limit}\n\n"
+                "Generate a personalized learning path with step-by-step modules, key takeaways, and citeable online learning materials."
+            )
+
+            response = await litellm.acompletion(
+                model=model_identifier,
+                api_key=settings.GEMINI_API_KEY,
+                response_format=StructuredAgentOutput,
+                messages=[
+                    {"role": "system", "content": prompt_system},
+                    {"role": "user", "content": prompt_user},
+                ],
                 temperature=0.3,
             )
-            structured_llm = llm.with_structured_output(StructuredAgentOutput)
 
-            prompt_template = ChatPromptTemplate.from_messages([
-                (
-                    "system",
-                    "You are an expert technical curriculum architect and learning agent. "
-                    "Your mission is to analyze the requested topic and generate skill-tailored online learning materials with citeable sources. "
-                    "Adapt all explanations, module depth, and material recommendations strictly according to the target skill level ({skill_level}). "
-                    "Provide real, high-quality, citeable learning resource links (official documentation, tutorials, technical articles, or interactive courses).",
-                ),
-                (
-                    "human",
-                    "Topic: {topic}\n"
-                    "Target Skill Level: {skill_level}\n"
-                    "Skill Analysis & Calibration: {analysis}\n"
-                    "User Context / Background: {user_context}\n"
-                    "Preferred Material Types: {preferred_types}\n"
-                    "Desired Resource Limit: {limit}\n\n"
-                    "Generate a personalized learning path with step-by-step modules, key takeaways, and citeable online learning materials.",
-                ),
-            ])
-
-            formatted_prompt = prompt_template.format_messages(
-                topic=topic,
-                skill_level=skill_level.value,
-                analysis=analysis,
-                user_context=user_context or "Not specified",
-                preferred_types=[t.value for t in preferred_types] if preferred_types else "All online learning material types",
-                limit=limit,
-            )
-
-            result = await structured_llm.ainvoke(formatted_prompt)
-            if isinstance(result, StructuredAgentOutput):
-                output = result
+            if response and response.choices:
+                message = response.choices[0].message
+                if hasattr(message, "parsed") and message.parsed:
+                    output = message.parsed
+                elif hasattr(message, "content") and message.content:
+                    output = StructuredAgentOutput.model_validate_json(message.content)
         except Exception as exc:
-            logger.warning("Gemini API call failed, using structured learning generator: %s", exc)
+            logger.warning("LiteLLM call to Gemini model failed, using structured learning generator: %s", exc)
 
     if output is None:
         output = _build_fallback_output(
