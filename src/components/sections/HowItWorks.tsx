@@ -1,26 +1,8 @@
-import { Compass, Map, Trophy } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Reveal } from '@/components/Reveal'
+import { Card, CardContent } from '@/components/ui'
+import { Reveal } from '@/components/shared'
+import { HOW_IT_WORKS_STEPS } from '@/data'
 
-const steps = [
-  {
-    icon: Compass,
-    title: 'Discover',
-    body: 'Open Explore, filter to your language, and star a couple of repos. That is the whole step. It takes five minutes.',
-  },
-  {
-    icon: Map,
-    title: 'Follow the path',
-    body: 'The roadmap turns your first contribution into small quests. Read the contributing guide, set up the repo, fix the thing.',
-  },
-  {
-    icon: Trophy,
-    title: 'Earn & level up',
-    body: 'Merged PRs earn points and badges. The graph on your profile starts filling in, and honestly it is a little addictive.',
-  },
-]
-
-export default function HowItWorks() {
+export function HowItWorks() {
   return (
     <section id="how-it-works" className="mx-auto max-w-[1240px] scroll-mt-24 px-5 py-24 sm:px-8">
       <Reveal>
@@ -41,7 +23,7 @@ export default function HowItWorks() {
           aria-hidden="true"
         />
         <ol className="grid grid-cols-1 gap-5 md:grid-cols-3">
-          {steps.map((step, index) => (
+          {HOW_IT_WORKS_STEPS.map((step, index) => (
             <li key={step.title} className="list-none">
               <Reveal delay={index * 120}>
                 <div className="relative">
@@ -73,3 +55,5 @@ export default function HowItWorks() {
     </section>
   )
 }
+
+export default HowItWorks

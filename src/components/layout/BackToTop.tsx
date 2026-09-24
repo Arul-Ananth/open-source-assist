@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { ArrowUp } from 'lucide-react'
 
-export default function BackToTop() {
+export function BackToTop() {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
@@ -29,3 +29,5 @@ export default function BackToTop() {
     </button>
   )
 }
+
+export default BackToTop

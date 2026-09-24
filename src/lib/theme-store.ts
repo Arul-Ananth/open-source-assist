@@ -1,44 +1,41 @@
 import { create } from 'zustand'
+import { persist, createJSONStorage } from 'zustand/middleware'
 
-type Theme = 'dark' | 'light'
+export type Theme = 'dark' | 'light'
 
-interface ThemeState {
+export interface ThemeState {
   theme: Theme
   setTheme: (theme: Theme) => void
   toggleTheme: () => void
 }
 
 function applyTheme(theme: Theme) {
-  const root = document.documentElement
-  root.classList.toggle('dark', theme === 'dark')
-  try {
-    localStorage.setItem('osa-theme', theme)
-  } catch {
-    // localStorage unavailable (private mode): theme still applies for the session
+  if (typeof document !== 'undefined') {
+    document.documentElement.classList.toggle('dark', theme === 'dark')
   }
 }
 
-function getInitialTheme(): Theme {
-  try {
-    const stored = localStorage.getItem('osa-theme')
-    if (stored === 'dark' || stored === 'light') return stored
-  } catch {
-    // fall through to default
-  }
-  return 'dark' // spec default
-}
+export const useThemeStore = create<ThemeState>()(
+  persist(
+    (set) => ({
+      theme: 'dark',
+      setTheme: (theme) => set({ theme }),
+      toggleTheme: () => set((state) => ({ theme: state.theme === 'dark' ? 'light' : 'dark' })),
+    }),
+    {
+      name: 'osa-theme',
+      storage: createJSONStorage(() => localStorage),
+      onRehydrateStorage: () => (state) => {
+        if (state) applyTheme(state.theme)
+      },
+    },
+  ),
+)
 
-export const useThemeStore = create<ThemeState>((set, get) => ({
-  theme: getInitialTheme(),
-  setTheme: (theme) => {
-    applyTheme(theme)
-    set({ theme })
-  },
-  toggleTheme: () => {
-    applyTheme(get().theme === 'dark' ? 'light' : 'dark')
-    set({ theme: get().theme === 'dark' ? 'light' : 'dark' })
-  },
-}))
+// Decouple side-effect by subscribing to theme state changes
+useThemeStore.subscribe((state) => {
+  applyTheme(state.theme)
+})
 
-// Sync the .dark class to the resolved theme on startup (index.html sets dark by default).
+// Initialize theme on the root document
 applyTheme(useThemeStore.getState().theme)

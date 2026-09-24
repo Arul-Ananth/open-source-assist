@@ -1,36 +1,12 @@
 import { GitBranch, MessageCircle } from 'lucide-react'
-import { Card, CardContent } from '@/components/ui/card'
-import { Button } from '@/components/ui/button'
-import { AnimatedNumber } from '@/components/AnimatedNumber'
+import { Card, CardContent, Button } from '@/components/ui'
+import { AnimatedNumber } from '@/components/shared'
+import { useLayout } from '@/components/layout'
+import { COMMUNITY_STATS, PARTNER_PROGRAMS } from '@/data'
 
-interface CommunityProps {
-  onOpenAuth: (mode: 'login' | 'signup') => void
+export interface CommunityProps {
+  onOpenAuth?: (mode: 'login' | 'signup') => void
 }
-
-interface Stat {
-  value: string
-  label: string
-  /** Small change chip rendered next to the value. */
-  delta?: string
-  /** Weekly trend, last point matches the delta. */
-  spark?: number[]
-}
-
-const stats: Stat[] = [
-  {
-    value: '2,417',
-    label: 'contributors so far',
-    delta: '+38 this week',
-    spark: [14, 18, 16, 24, 21, 28, 26, 34, 31, 38],
-  },
-  {
-    value: '9,842',
-    label: 'first issues matched',
-    delta: '+214 this week',
-  },
-  { value: '312', label: 'badges awarded' },
-  { value: '118', label: 'partner repositories' },
-]
 
 /** Tiny deterministic sparkline — no chart lib, no animation, just the shape. */
 function Sparkline({ points, className }: { points: number[]; className?: string }) {
@@ -59,7 +35,15 @@ function Sparkline({ points, className }: { points: number[]; className?: string
   )
 }
 
-export default function Community({ onOpenAuth }: CommunityProps) {
+export function Community({ onOpenAuth }: CommunityProps) {
+  let layoutAuth: ((mode: 'login' | 'signup') => void) | undefined
+  try {
+    layoutAuth = useLayout().openAuth
+  } catch {
+    // rendered outside Layout
+  }
+  const triggerAuth = onOpenAuth ?? layoutAuth
+
   return (
     <section id="community" className="mx-auto max-w-[1240px] scroll-mt-20 px-5 py-24 sm:px-8">
       <Card>
@@ -75,7 +59,7 @@ export default function Community({ onOpenAuth }: CommunityProps) {
                 cold.
               </p>
               <div className="mt-8 flex flex-wrap gap-3">
-                <Button onClick={() => onOpenAuth('signup')}>
+                <Button onClick={() => triggerAuth?.('signup')}>
                   <GitBranch className="size-4" aria-hidden="true" />
                   Create free account
                 </Button>
@@ -92,7 +76,7 @@ export default function Community({ onOpenAuth }: CommunityProps) {
             {/* Deliberately not uniform: one stat gets a sparkline, two get
                 week-over-week chips, the rest stay plain numbers. */}
             <dl className="grid grid-cols-2 gap-x-8 gap-y-10 self-center">
-              {stats.map((stat, i) => (
+              {COMMUNITY_STATS.map((stat, i) => (
                 <div key={stat.label}>
                   <dd className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 font-mono text-3xl font-semibold tracking-tight text-accent-text sm:text-4xl">
                     <AnimatedNumber value={stat.value} delay={i * 120} />
@@ -117,14 +101,7 @@ export default function Community({ onOpenAuth }: CommunityProps) {
               programs our community joins
             </p>
             <div className="mt-4 flex flex-wrap gap-2.5">
-              {[
-                'GSSoC',
-                'GSoC',
-                'Hacktoberfest',
-                'LFX Mentorship',
-                'MLH Fellowship',
-                'Outreachy',
-              ].map((program) => (
+              {PARTNER_PROGRAMS.map((program) => (
                 <span key={program} className="program-chip">
                   {program}
                 </span>
@@ -136,3 +113,5 @@ export default function Community({ onOpenAuth }: CommunityProps) {
     </section>
   )
 }
+
+export default Community

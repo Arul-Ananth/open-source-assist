@@ -20,10 +20,16 @@ export interface Contributor {
 }
 
 export class RateLimitError extends Error {
-  constructor() {
-    super('GitHub API rate limit reached — showing repository owners instead.')
+  constructor(message = 'GitHub API rate limit reached — showing repository owners instead.') {
+    super(message)
     this.name = 'RateLimitError'
   }
+}
+
+/** Centralized Query Key Factory for TanStack Query */
+export const projectKeys = {
+  all: ['projects'] as const,
+  contributors: (repos: string[]) => ['contributors-batch', repos] as const,
 }
 
 const CONTRIBUTORS_CACHE_KEY = 'osa:contributors:v1'
@@ -121,17 +127,18 @@ export function ownerAsContributor(fullName: string, avatarUrl: string): Contrib
   ]
 }
 
-interface SearchResponse {
+export interface SearchResponse {
   total_count: number
   items: Repo[]
 }
 
 /**
  * Global top repositories: the three most-starred actively-maintained repos
- * on GitHub, no filters. Stars sort proxies for the "top repos" ranking.
+ * on GitHub, dynamically filtering for recent commits.
  */
 export async function searchProjects(signal?: AbortSignal): Promise<SearchResponse> {
-  const query = 'stars:>10000 pushed:>2025-01-01'
+  const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+  const query = `stars:>10000 pushed:>${oneYearAgo}`
   const url =
     `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}` +
     `&sort=stars&order=desc&per_page=3`
@@ -142,7 +149,7 @@ export async function searchProjects(signal?: AbortSignal): Promise<SearchRespon
   })
 
   if (res.status === 403 || res.status === 429) {
-    throw new Error('GitHub API rate limit reached. Wait a minute and try again.')
+    throw new RateLimitError('GitHub API rate limit reached. Wait a minute and try again.')
   }
   if (!res.ok) {
     throw new Error(`GitHub API error (${res.status}). Please try again.`)

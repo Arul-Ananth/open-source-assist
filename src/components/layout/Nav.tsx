@@ -1,26 +1,22 @@
 import { useEffect, useState } from 'react'
 import { Menu, X } from 'lucide-react'
-import { ThemeToggle } from '@/components/ThemeToggle'
-import { Button } from '@/components/ui/button'
+import { ThemeToggle } from '@/components/layout/ThemeToggle'
+import { Button } from '@/components/ui'
+import { NAV_LINKS, type NavLink } from '@/data'
 
-const links = [
-  { href: '#finder', label: 'Explore' },
-  { href: '#modules', label: 'Modules' },
-  { href: '#how-it-works', label: 'How it works' },
-  { href: '#community', label: 'Community' },
-]
+export type { NavLink } from '@/data'
 
-interface NavProps {
+export interface NavProps {
   onOpenAuth: (mode: 'login' | 'signup') => void
+  links?: NavLink[]
 }
 
-export default function Nav({ onOpenAuth }: NavProps) {
+export function Nav({ onOpenAuth, links = NAV_LINKS }: NavProps) {
   const [open, setOpen] = useState(false)
   const [scrolled, setScrolled] = useState(false)
   const [active, setActive] = useState<string | null>(null)
 
-  // Solid blurred backdrop (plus a subtle height shrink) once the page scrolls,
-  // so content passing underneath never bleeds through the bar.
+  // Solid blurred backdrop once the page scrolls
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12)
     onScroll()
@@ -28,11 +24,16 @@ export default function Nav({ onOpenAuth }: NavProps) {
     return () => window.removeEventListener('scroll', onScroll)
   }, [])
 
-  // Scroll-spy: highlight the link whose section is inside the reading band.
+  // Safe scroll-spy: only observes elements that actually exist on the current page
   useEffect(() => {
     const sections = links
-      .map((link) => document.getElementById(link.href.slice(1)))
+      .map((link) => {
+        const hashIdx = link.href.indexOf('#')
+        if (hashIdx === -1) return null
+        return document.getElementById(link.href.slice(hashIdx + 1))
+      })
       .filter((el): el is HTMLElement => el !== null)
+
     if (sections.length === 0) return
 
     const visible = new Set<string>()
@@ -42,14 +43,17 @@ export default function Nav({ onOpenAuth }: NavProps) {
           if (entry.isIntersecting) visible.add(entry.target.id)
           else visible.delete(entry.target.id)
         }
-        const current = links.find((link) => visible.has(link.href.slice(1)))
+        const current = links.find((link) => {
+          const hashIdx = link.href.indexOf('#')
+          return hashIdx !== -1 && visible.has(link.href.slice(hashIdx + 1))
+        })
         if (current) setActive(current.href)
       },
       { rootMargin: '-30% 0px -55% 0px' },
     )
     sections.forEach((section) => observer.observe(section))
     return () => observer.disconnect()
-  }, [])
+  }, [links])
 
   // Close the mobile menu if the viewport grows past the breakpoint.
   useEffect(() => {
@@ -80,7 +84,7 @@ export default function Nav({ onOpenAuth }: NavProps) {
         }`}
       >
         <a
-          href="#top"
+          href="/"
           className="flex items-center gap-2.5"
           aria-label="OpenSource Assist home"
         >
@@ -93,7 +97,7 @@ export default function Nav({ onOpenAuth }: NavProps) {
           <span className="text-base font-bold tracking-tight">OpenSource Assist</span>
         </a>
 
-        {/* Desktop links: static pill — no scroll-driven restyling, so nothing shifts */}
+        {/* Desktop links */}
         <nav
           aria-label="Primary"
           className="hidden items-center gap-1 rounded-full border border-border bg-surface px-2 py-1.5 shadow-soft md:flex"
@@ -135,7 +139,7 @@ export default function Nav({ onOpenAuth }: NavProps) {
         </div>
       </div>
 
-      {/* Mobile menu: solid surface, slides/fades in below the bar */}
+      {/* Mobile menu */}
       <div
         id="mobile-nav"
         className={`overflow-hidden transition-[max-height,opacity] duration-300 ease-out md:hidden ${
@@ -183,3 +187,5 @@ export default function Nav({ onOpenAuth }: NavProps) {
     </header>
   )
 }
+
+export default Nav

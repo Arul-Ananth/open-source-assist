@@ -3,7 +3,7 @@ import { Compass, FolderSearch, Terminal } from 'lucide-react'
 
 const TYPED_LINE = 'osa roadmap --begin'
 
-export default function Hero() {
+export function Hero() {
   // One-time typewriter for the terminal's first line, with a blinking caret.
   const [typed, setTyped] = useState('')
 
@@ -105,9 +105,11 @@ export default function Hero() {
               <span className="text-accent-text">level 2 · 430 pts</span>
             </div>
           </div>
-
         </div>
       </div>
     </section>
   )
 }
+
+export default Hero
+

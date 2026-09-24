@@ -1,12 +1,21 @@
 import { ArrowRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Reveal } from '@/components/Reveal'
+import { Button } from '@/components/ui'
+import { Reveal } from '@/components/shared'
+import { useLayout } from '@/components/layout'
 
-interface FinalCtaProps {
-  onOpenAuth: (mode: 'login' | 'signup') => void
+export interface FinalCtaProps {
+  onOpenAuth?: (mode: 'login' | 'signup') => void
 }
 
-export default function FinalCta({ onOpenAuth }: FinalCtaProps) {
+export function FinalCta({ onOpenAuth }: FinalCtaProps) {
+  let layoutAuth: ((mode: 'login' | 'signup') => void) | undefined
+  try {
+    layoutAuth = useLayout().openAuth
+  } catch {
+    // rendered outside Layout
+  }
+  const triggerAuth = onOpenAuth ?? layoutAuth
+
   return (
     <section className="border-t border-border">
       <div className="mx-auto max-w-[1240px] px-5 py-24 sm:px-8">
@@ -27,7 +36,7 @@ export default function FinalCta({ onOpenAuth }: FinalCtaProps) {
               scary. Everyone in the forum did the same thing once.
             </p>
             <div className="mt-9 flex justify-center">
-              <Button size="lg" onClick={() => onOpenAuth('signup')}>
+              <Button size="lg" onClick={() => triggerAuth?.('signup')}>
                 Start contributing free
                 <ArrowRight className="size-4" aria-hidden="true" />
               </Button>
@@ -41,3 +50,6 @@ export default function FinalCta({ onOpenAuth }: FinalCtaProps) {
     </section>
   )
 }
+
+export default FinalCta
+

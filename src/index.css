@@ -53,6 +53,7 @@ html:not(.dark) {
 
 html {
   color-scheme: dark;
+  scrollbar-gutter: stable;
 }
 
 html:not(.dark) {
@@ -60,7 +61,11 @@ html:not(.dark) {
 }
 
 body {
-  @apply bg-background font-sans text-foreground antialiased;
+  background-color: var(--color-background);
+  font-family: var(--font-sans);
+  color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
 
