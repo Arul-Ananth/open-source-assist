@@ -9,6 +9,7 @@ from backend.services.scoring_strategy import (
 from backend.services.embedding_service import EmbeddingService, embedding_service
 from backend.services.qdrant_service import QdrantService, qdrant_service
 from backend.services.search_service import SearchService, search_service
+from backend.services.learning_agent import LearningAgentService, learning_agent_service
 
 __all__ = [
     "ScoringStrategy",
@@ -21,5 +22,8 @@ __all__ = [
     "qdrant_service",
     "SearchService",
     "search_service",
+    "LearningAgentService",
+    "learning_agent_service",
 ]
+
 
