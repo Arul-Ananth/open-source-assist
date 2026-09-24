@@ -1,6 +1,7 @@
 import * as React from 'react'
 import { ArrowLeft, ArrowRight, Check, GitBranch, KeyRound, LogIn, UserPlus } from 'lucide-react'
 import { Dialog, Button, Input } from '@/components/ui'
+import { useAuthStore } from '@/lib/auth-store'
 
 export type AuthMode = 'login' | 'signup'
 export type AuthScreen = AuthMode | 'forgot'
@@ -90,7 +91,16 @@ export function AuthDialog({ open, onClose, initialMode = 'login' }: AuthDialogP
     e.preventDefault()
     const formData = new FormData(e.currentTarget)
     if (!validate(formData)) return
-    // Real authentication integration point
+
+    // Simulated auth (no backend yet): store the session and enter the dashboard.
+    if (screen === 'signup') {
+      const username = String(formData.get('signup-username') ?? '').trim()
+      const email = String(formData.get('signup-email') ?? '').trim()
+      useAuthStore.getState().signup(username, email)
+    } else {
+      const email = String(formData.get('login-email') ?? '').trim()
+      useAuthStore.getState().login(email)
+    }
     onClose()
   }
 

@@ -68,7 +68,7 @@ export function Nav({ onOpenAuth, links = NAV_LINKS }: NavProps) {
 
   return (
     <header
-      className={`fixed inset-x-0 top-0 z-40 transition-all duration-300 ${
+      className={`fixed inset-x-0 top-0 z-40 transition-colors duration-300 ${
         bubble
           ? 'bg-transparent'
           : elevated
@@ -77,7 +77,7 @@ export function Nav({ onOpenAuth, links = NAV_LINKS }: NavProps) {
       }`}
     >
       <div
-        className={`mx-auto flex max-w-[1240px] items-center justify-between transition-all duration-300 ${
+        className={`mx-auto flex items-center justify-between transition-[max-width,height,margin,border-radius,box-shadow] duration-300 ${
           bubble
             ? 'nav-bubble mt-2 h-16 max-w-[min(1120px,calc(100vw-2rem))] rounded-[1.75rem] border border-border bg-background/85 px-4 shadow-soft-lg backdrop-blur-md sm:px-6'
             : `h-16 max-w-[1240px] px-5 sm:px-8 ${elevated ? 'h-14' : ''}`

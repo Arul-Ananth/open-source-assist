@@ -132,6 +132,16 @@ html:not(.dark) {
   50%, 100% { opacity: 0; }
 }
 
+/* Chatbot typing indicator: dots bounce upward in sequence */
+@keyframes typing-dot {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.35; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+.animate-typing-dot {
+  animation: typing-dot 1.2s ease-in-out infinite;
+}
+
 /* Terminal block caret for the hero typewriter line */
 .terminal-caret {
   display: inline-block;
@@ -153,6 +163,7 @@ html:not(.dark) {
   background-size: 200% 100%;
   animation: shimmer 2.6s linear infinite;
 }
+
 
 /* ---------- GSSoC / GSoC gradient accents ----------
    GSSoC vibe: orange→magenta gradient; GSoC vibe: multi-color program dots
@@ -317,9 +328,40 @@ html:not(.dark) {
 }
 
 /* Form input: flat surface, 1px border, focus snaps to accent.
-   h-9 keeps the auth form compact enough to fit one screen on laptops. */
-.input-field {
-  @apply h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 hover:border-accent/50 focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent/15;
+   h-9 keeps the auth form compact enough to fit one screen on laptops.
+   Wrapped in @layer utilities so padding utilities (pl-9, pr-9 etc.) used
+   alongside it win the cascade — fixes text overlapping absolute icons. */
+@layer utilities {
+  .input-field {
+    @apply h-9 w-full rounded-md border border-border bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground transition-all duration-200 hover:border-accent/50 focus:border-accent focus:outline-none focus:ring-4 focus:ring-accent/15;
+  }
+}
+
+/* Search input with icons: keep side padding via an unlayered rule that
+   explicitly sets only padding, so both left and right icons get breathing room. */
+.search-input {
+  padding-left: 2.25rem;
+  padding-right: 2.5rem;
+}
+
+/* Hide the native clear button on search inputs (we render our own). */
+.search-input::-webkit-search-cancel-button {
+  display: none;
+}
+
+/* Frosted-glass surface for floating popups (notifications, etc.).
+   Translucent background + backdrop blur + tint that adapts to the theme. */
+.glass-panel {
+  background: color-mix(in srgb, var(--color-surface) 72%, transparent);
+  backdrop-filter: blur(14px) saturate(1.35);
+  -webkit-backdrop-filter: blur(14px) saturate(1.35);
+}
+
+/* Keeps the popup legible over the page even before blur kicks in. */
+@supports not (backdrop-filter: blur(1px)) {
+  .glass-panel {
+    background: var(--color-surface);
+  }
 }
 
 /* Smooth in-page anchor scrolling (nav links), skipped for reduced motion */
@@ -330,6 +372,15 @@ html:not(.dark) {
 }
 
 /* ---------- Reduced motion ---------- */
+
+/* ---------- Instant theme switch ----------
+   While .theme-switching is on <html>, all element transitions are suspended
+   so the dark/light flip is applied in a single frame with no color lag. */
+.theme-switching *,
+.theme-switching *::before,
+.theme-switching *::after {
+  transition: none !important;
+}
 
 /* ---------- Reduced motion ---------- */
 

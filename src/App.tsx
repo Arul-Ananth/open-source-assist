@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { HomePage } from '@/page'
+import Dashboard from '@/components/Dashboard'
+import { useAuthStore } from '@/lib/auth-store'
 
 export default function App() {
   const [queryClient] = useState(
@@ -19,6 +21,21 @@ export default function App() {
         },
       }),
   )
+  const user = useAuthStore((s) => s.user)
+
+  const handleLogout = () => {
+    useAuthStore.getState().logout()
+    window.scrollTo({ top: 0 })
+  }
+
+  // Signed-in users land on the dashboard instead of the marketing page.
+  if (user) {
+    return (
+      <QueryClientProvider client={queryClient}>
+        <Dashboard onLogout={handleLogout} />
+      </QueryClientProvider>
+    )
+  }
 
   return (
     <QueryClientProvider client={queryClient}>

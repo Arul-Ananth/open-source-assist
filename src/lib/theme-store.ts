@@ -10,9 +10,14 @@ export interface ThemeState {
 }
 
 function applyTheme(theme: Theme) {
-  if (typeof document !== 'undefined') {
-    document.documentElement.classList.toggle('dark', theme === 'dark')
-  }
+  if (typeof document === 'undefined') return
+  const root = document.documentElement
+  // Block all transitions for the flip so the theme snaps instantly instead of
+  // cross-fading (cards/buttons use transition-all, which otherwise lags).
+  root.classList.add('theme-switching')
+  root.classList.toggle('dark', theme === 'dark')
+  // Wait two frames (paint with new theme), then re-enable transitions.
+  requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove('theme-switching')))
 }
 
 export const useThemeStore = create<ThemeState>()(
