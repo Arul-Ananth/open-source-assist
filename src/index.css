@@ -1,0 +1,55 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-primary-text: var(--primary-text);
+  --color-secondary-text: var(--secondary-text);
+  --color-border: var(--border-color);
+  --color-accent: var(--accent);
+  --color-accent-secondary: var(--accent-secondary);
+
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+
+  --shadow-accent: 4px 4px 0px 0px rgba(255,140,0,0.5);
+  --shadow-accent-light: 4px 4px 0px 0px rgba(0,0,0,0.9);
+}
+
+:root {
+  --background: #F6F8FA;
+  --surface: #FFFFFF;
+  --primary-text: #1F2328;
+  --secondary-text: #656D76;
+  --border-color: #D0D7DE;
+  --accent: #E36209;
+  --accent-secondary: #FFD700;
+  --accent-rgb: 227, 98, 9;
+}
+
+.dark {
+  --background: #0D1117;
+  --surface: #161B22;
+  --primary-text: #E6EDF3;
+  --secondary-text: #8B949E;
+  --border-color: #30363D;
+  --accent: #FF8C00;
+  --accent-secondary: #FFD700;
+  --accent-rgb: 255, 140, 0;
+}
+
+body {
+  margin: 0;
+  background-color: var(--background);
+  color: var(--primary-text);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+*, *::before, *::after {
+  border-color: var(--border-color);
+}
