@@ -10,6 +10,11 @@ from backend.services.embedding_service import EmbeddingService, embedding_servi
 from backend.services.qdrant_service import QdrantService, qdrant_service
 from backend.services.search_service import SearchService, search_service
 from backend.services.learning_agent import LearningAgentService, learning_agent_service
+from backend.services.github_client import GitHubClient, GitHubAPIError
+from backend.services import github_sync_service
+from backend.services import project_service
+from backend.services import contributor_service
+from backend.services import event_service
 
 __all__ = [
     "ScoringStrategy",
@@ -24,6 +29,12 @@ __all__ = [
     "search_service",
     "LearningAgentService",
     "learning_agent_service",
+    "GitHubClient",
+    "GitHubAPIError",
+    "github_sync_service",
+    "project_service",
+    "contributor_service",
+    "event_service",
 ]
 
 

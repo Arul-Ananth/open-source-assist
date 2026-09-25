@@ -21,6 +21,16 @@ from backend.schemas.learning import (
     LearningMaterialResponse,
     StructuredAgentOutput,
 )
+from backend.schemas.github import (
+    ProjectResponse,
+    ContributorResponse,
+    SyncResponse,
+    ContributorSyncResponse,
+)
+from backend.schemas.events import (
+    EventCreate,
+    EventResponse,
+)
 
 __all__ = [
     "RepoSearchFilter",
@@ -38,6 +48,12 @@ __all__ = [
     "LearningMaterialRequest",
     "LearningMaterialResponse",
     "StructuredAgentOutput",
+    "ProjectResponse",
+    "ContributorResponse",
+    "SyncResponse",
+    "ContributorSyncResponse",
+    "EventCreate",
+    "EventResponse",
 ]
 
 

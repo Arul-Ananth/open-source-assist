@@ -96,6 +96,50 @@ class Settings(BaseSettings):
         description="Gemini LLM model identifier for AI agents.",
     )
 
+    # PostgreSQL Database Configuration (GitHub Pipeline & Events)
+    POSTGRES_HOST: str = Field(
+        default="localhost",
+        description="PostgreSQL host (e.g. AWS RDS endpoint).",
+    )
+    POSTGRES_PORT: int = Field(
+        default=5432,
+        description="PostgreSQL port.",
+    )
+    POSTGRES_DB: str = Field(
+        default="postgres",
+        description="PostgreSQL database name.",
+    )
+    POSTGRES_USER: str = Field(
+        default="postgres",
+        description="PostgreSQL username.",
+    )
+    POSTGRES_PASSWORD: str = Field(
+        default="",
+        description="PostgreSQL password.",
+    )
+
+    # GitHub API
+    GITHUB_TOKEN: str = Field(
+        default="",
+        description="GitHub personal access token for API calls.",
+    )
+    GITHUB_MIN_REQUEST_INTERVAL: float = Field(
+        default=1.0,
+        description="Minimum seconds between GitHub API requests.",
+    )
+    GITHUB_MAX_RETRIES: int = Field(
+        default=3,
+        description="Maximum retries for failed GitHub API requests.",
+    )
+
+    @property
+    def DATABASE_URL(self) -> str:
+        """Construct the async PostgreSQL connection URL."""
+        return (
+            f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
+            f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+        )
+
 
 settings = Settings()
 

@@ -5,9 +5,13 @@ from typing import AsyncGenerator
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from backend.core.config import settings
+from backend.core.database import engine, init_db
 from backend.services.qdrant_service import qdrant_service
 from backend.api.routes.search import router as search_router
 from backend.api.routes.learning import router as learning_router
+from backend.api.routes.github import router as github_router
+from backend.api.routes.projects import router as projects_router
+from backend.api.routes.events import router as events_router
 
 
 @asynccontextmanager
@@ -17,13 +21,19 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     try:
         await qdrant_service.ensure_collection_exists()
     except Exception as exc:
-        # In testing or standalone offline environments, allow graceful continuation
         print(f"Notice: Qdrant startup collection check: {exc}")
+
+    # Startup: Ensure PostgreSQL tables exist
+    try:
+        await init_db()
+    except Exception as exc:
+        print(f"Notice: PostgreSQL startup table check: {exc}")
 
     yield
 
     # Shutdown: Cleanly close client connections
     await qdrant_service.close()
+    await engine.dispose()
 
 
 app = FastAPI(
@@ -50,6 +60,9 @@ app.add_middleware(
 # Register API routers
 app.include_router(search_router, prefix=settings.API_V1_PREFIX)
 app.include_router(learning_router, prefix=settings.API_V1_PREFIX)
+app.include_router(github_router, prefix=settings.API_V1_PREFIX)
+app.include_router(projects_router, prefix=settings.API_V1_PREFIX)
+app.include_router(events_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/health", tags=["Health"])
