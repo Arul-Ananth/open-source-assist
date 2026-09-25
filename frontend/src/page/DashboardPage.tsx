@@ -2,7 +2,6 @@ import {
   Bell,
   BookOpen,
   ChevronRight,
-  GraduationCap,
   LayoutDashboard,
   LogOut,
   Map,
@@ -25,6 +24,7 @@ import { ThemeToggle } from '@/components/layout/ThemeToggle'
 import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, EmptyState } from '@/components/ui'
 import { useAuthStore } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
+import { RoadmapPage } from '@/components/roadmap/RoadmapPage'
 
 interface DashboardPageProps {
   onLogout: () => void
@@ -353,7 +353,13 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
 
         {/* Content */}
         <main className="mx-auto w-full max-w-[1200px] flex-1 p-4 sm:p-6">
-          {section === 'overview' ? <OverviewSection /> : <BlankModule id={section} />}
+          {section === 'overview' ? (
+            <OverviewSection />
+          ) : section === 'roadmap' ? (
+            <RoadmapPage embedded />
+          ) : (
+            <BlankModule id={section} />
+          )}
         </main>
 
         {/* Footer — slim transparent bottom bar: ©, policy links, made-with note */}
@@ -551,18 +557,39 @@ function ChatbotWidget() {
     return () => window.clearTimeout(replyTimer.current)
   }, [])
 
-  const send = () => {
+  const send = async () => {
     const text = input.trim()
     if (!text || isTyping) return
     setMessages((m) => [...m, { from: 'user', text }])
     setInput('')
     setIsTyping(true)
-    // Placeholder echo reply — swap for a real API call later.
-    window.clearTimeout(replyTimer.current)
-    replyTimer.current = window.setTimeout(() => {
-      setMessages((m) => [...m, { from: 'bot', text: 'This is a placeholder reply. Connect me to a backend!' }])
+
+    try {
+      const res = await fetch('/api/v1/chatbot/query', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: text,
+          skill_profile: {
+            skill_level: 'beginner',
+            tech_stack: ['Python', 'TypeScript', 'React'],
+          },
+        }),
+      })
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ detail: 'Service unavailable' }))
+        throw new Error(err.detail || 'Service response error')
+      }
+
+      const data = await res.json()
+      setMessages((m) => [...m, { from: 'bot', text: data.answer }])
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Chatbot service unavailable.'
+      setMessages((m) => [...m, { from: 'bot', text: `⚠️ ${message}` }])
+    } finally {
       setIsTyping(false)
-    }, 1400)
+    }
   }
 
   return (
@@ -571,12 +598,20 @@ function ChatbotWidget() {
         <div className="animate-pop-in fixed bottom-24 right-5 z-50 flex h-[440px] w-[min(92vw,360px)] flex-col overflow-hidden rounded-xl border border-border bg-surface shadow-soft-lg">
           {/* Header */}
           <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-accent text-on-accent">
-              <Bot className="size-4" aria-hidden="true" />
+            <span className="flex size-8 shrink-0 items-center justify-center overflow-hidden rounded-lg border border-border bg-surface">
+              <img
+                src="/chatbot-logo.png"
+                alt="OpenTrack Bot"
+                className="size-full object-cover"
+                onError={(e) => {
+                  e.currentTarget.style.display = 'none'
+                }}
+              />
+              <Bot className="size-4 text-accent-text" aria-hidden="true" />
             </span>
             <div className="min-w-0">
-              <p className="text-sm font-semibold leading-tight">Assistant</p>
-              <p className="text-[11px] leading-tight text-muted-foreground">Always here to help</p>
+              <p className="text-sm font-semibold leading-tight">OpenTrack Bot</p>
+              <p className="text-[11px] leading-tight text-muted-foreground">Skill-aware developer assistant</p>
             </div>
             <div className="ml-auto flex items-center gap-1">
               <button
@@ -646,7 +681,7 @@ function ChatbotWidget() {
             <input
               value={input}
               onChange={(e) => setInput(e.target.value)}
-              placeholder="Ask something…"
+              placeholder="Ask a technical question…"
               aria-label="Message"
               className="input-field flex-1"
             />
@@ -663,9 +698,20 @@ function ChatbotWidget() {
         onClick={() => setOpen((v) => !v)}
         aria-label={open ? 'Close assistant' : 'Open assistant'}
         aria-expanded={open}
-        className="fixed bottom-5 right-5 z-50 flex size-14 items-center justify-center rounded-full bg-accent text-on-accent shadow-accent-glow transition-all duration-200 hover:-translate-y-1 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+        className="fixed bottom-5 right-5 z-50 flex size-14 items-center justify-center overflow-hidden rounded-full border border-border bg-surface p-1 shadow-soft-lg transition-all duration-200 hover:-translate-y-1 hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-background"
       >
-        {open ? <X className="size-6" aria-hidden="true" /> : <GraduationCap className="size-6" aria-hidden="true" />}
+        {open ? (
+          <X className="size-6 text-foreground" aria-hidden="true" />
+        ) : (
+          <img
+            src="/chatbot-logo.png"
+            alt="OpenTrack Chatbot"
+            className="size-full rounded-full object-cover"
+            onError={(e) => {
+              e.currentTarget.style.display = 'none'
+            }}
+          />
+        )}
       </button>
     </>
   )
