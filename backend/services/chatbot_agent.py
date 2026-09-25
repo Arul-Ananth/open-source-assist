@@ -48,175 +48,72 @@ async def analyze_skill_context_node(state: ChatbotAgentState) -> dict[str, Any]
     return {"analysis": analysis}
 
 
-def _build_fallback_response(
-    question: str,
-    skill_profile: UserSkillProfile,
-) -> StructuredChatbotOutput:
-    """Generates structured fallback chatbot response when Gemini API key is unconfigured."""
-    level_str = skill_profile.skill_level.value.capitalize()
-    stack_str = ", ".join(skill_profile.tech_stack) if skill_profile.tech_stack else "General Tech Stack"
-
-    if skill_profile.skill_level == SkillLevel.BEGINNER:
-        answer = (
-            f"Here is a beginner-friendly breakdown of '{question}'. "
-            f"Since you are working with {stack_str}, we start with basic concepts, clear syntax, and step-by-step building blocks."
-        )
-        code_snippets = [
-            CodeSnippet(
-                language="python" if "python" in stack_str.lower() else "javascript",
-                code=(
-                    "# Beginner-friendly example demonstrating core concepts\n"
-                    "def main():\n"
-                    "    print('Initializing solution for:', '" + question[:30] + "')\n"
-                    "    # Step 1: Prepare data\n"
-                    "    data = [1, 2, 3]\n"
-                    "    # Step 2: Process items safely\n"
-                    "    for item in data:\n"
-                    "        print(f'Processing item: {item}')\n\n"
-                    "if __name__ == '__main__':\n"
-                    "    main()\n"
-                ),
-                explanation="Exemplifies basic function definition, loop control, and clean console logging.",
-            )
-        ]
-        followups = [
-            f"How do I set up a local testing environment for {stack_str}?",
-            "What are common pitfalls to avoid for beginners in this topic?",
-        ]
-    elif skill_profile.skill_level == SkillLevel.INTERMEDIATE:
-        answer = (
-            f"Here is an intermediate architectural breakdown addressing '{question}' using {stack_str}. "
-            "Focusing on modular separation, async processing, and structured error boundaries."
-        )
-        code_snippets = [
-            CodeSnippet(
-                language="python" if "python" in stack_str.lower() else "typescript",
-                code=(
-                    "import asyncio\n"
-                    "import logging\n\n"
-                    "logger = logging.getLogger(__name__)\n\n"
-                    "async def process_task(task_id: int) -> dict[str, str]:\n"
-                    "    logger.info(f'Executing task {task_id}')\n"
-                    "    await asyncio.sleep(0.1)  # Simulate async I/O\n"
-                    "    return {'status': 'completed', 'task_id': str(task_id)}\n"
-                ),
-                explanation="Demonstrates asynchronous function execution, non-blocking I/O, and structured logging.",
-            )
-        ]
-        followups = [
-            "How can I handle concurrency limits and task cancellation gracefully?",
-            "What are the best practices for unit testing this async handler?",
-        ]
-    else:  # ADVANCED
-        answer = (
-            f"Here is an advanced deep-dive addressing '{question}' for high-throughput {stack_str} systems. "
-            "Analyzing runtime internals, memory allocation, distributed trade-offs, and fault tolerance."
-        )
-        code_snippets = [
-            CodeSnippet(
-                language="python" if "python" in stack_str.lower() else "rust",
-                code=(
-                    "from typing import AsyncGenerator\n"
-                    "from contextlib import asynccontextmanager\n\n"
-                    "@asynccontextmanager\n"
-                    "async def resource_pipeline() -> AsyncGenerator[None, None]:\n"
-                    "    # Allocate low-level resource pool / connection socket\n"
-                    "    try:\n"
-                    "        yield\n"
-                    "    finally:\n"
-                    "        # Emergency context cleanup & socket flush\n"
-                    "        pass\n"
-                ),
-                explanation="Illustrates high-performance async context managers with guaranteed resource cleanup hooks.",
-            )
-        ]
-        followups = [
-            "What are the distributed consensus or caching trade-offs at extreme scale?",
-            "How do we instrument OpenTelemetry tracing across this pipeline?",
-        ]
-
-    references = [
-        CitedMaterial(
-            title=f"Official Guide & Reference: {question[:40]}",
-            url=f"https://docs.reference.org/search?q={question.lower().replace(' ', '+')}",
-            material_type=MaterialType.OFFICIAL_DOCS,
-            difficulty_level=skill_profile.skill_level,
-            snippet=f"Official technical documentation and API reference for {question}.",
-            relevance_rationale=f"Authoritative documentation adapted for {level_str} proficiency level.",
-            topics=skill_profile.tech_stack or ["general-dev"],
-        )
-    ]
-
-    return StructuredChatbotOutput(
-        answer=answer,
-        code_snippets=code_snippets,
-        cited_references=references,
-        suggested_followups=followups,
-    )
-
-
 async def generate_answer_node(state: ChatbotAgentState) -> dict[str, Any]:
-    """Node: Invoke Gemini model via LiteLLM with structured response schema, or fallback to structured offline generator."""
+    """Node: Invoke Gemini model via LiteLLM with structured response schema."""
     question = state["question"]
     profile = state["skill_profile"]
     analysis = state.get("analysis", {})
 
-    output: StructuredChatbotOutput | None = None
+    if not settings.GEMINI_API_KEY:
+        raise ValueError(
+            "GEMINI_API_KEY is not configured. Please set GEMINI_API_KEY in your environment to use the AI chatbot."
+        )
 
-    if settings.GEMINI_API_KEY:
-        try:
-            import litellm
+    try:
+        import litellm
 
-            model_identifier = (
-                settings.GEMINI_MODEL
-                if settings.GEMINI_MODEL.startswith("gemini/")
-                else f"gemini/{settings.GEMINI_MODEL}"
-            )
+        model_identifier = (
+            settings.GEMINI_MODEL
+            if settings.GEMINI_MODEL.startswith("gemini/")
+            else f"gemini/{settings.GEMINI_MODEL}"
+        )
 
-            prompt_system = (
-                "You are an expert AI technical mentor and skill-aware developer chatbot. "
-                "Your goal is to answer developer questions with precision, calibrating your explanation depth, "
-                "code complexity, vocabulary, and examples strictly to the user's skill level and background profile. "
-                f"Target User Skill Level: {profile.skill_level.value.upper()}.\n"
-                f"Explanation Strategy: {analysis.get('explanation_strategy', 'Standard explanation')}.\n"
-                "Always provide clear explanations, practical code snippets matching their tech stack, citeable official documentation references, "
-                "and helpful follow-up questions."
-            )
+        prompt_system = (
+            "You are an expert AI technical mentor and skill-aware developer chatbot. "
+            "Your goal is to answer developer questions with precision, calibrating your explanation depth, "
+            "code complexity, vocabulary, and examples strictly to the user's skill level and background profile. "
+            f"Target User Skill Level: {profile.skill_level.value.upper()}.\n"
+            f"Explanation Strategy: {analysis.get('explanation_strategy', 'Standard explanation')}.\n"
+            "Always provide clear explanations, practical code snippets matching their tech stack, citeable official documentation references, "
+            "and helpful follow-up questions."
+        )
 
-            prompt_user = (
-                f"User Question: {question}\n\n"
-                f"User Profile:\n"
-                f"- Skill Level: {profile.skill_level.value}\n"
-                f"- Tech Stack: {profile.tech_stack}\n"
-                f"- Development Experience: {profile.experience_years or 'Not specified'} years\n"
-                f"- Learning Goals: {profile.learning_goals or 'General knowledge'}\n\n"
-                "Generate a skill-calibrated answer with code snippets, citeable references, and follow-up questions."
-            )
+        prompt_user = (
+            f"User Question: {question}\n\n"
+            f"User Profile:\n"
+            f"- Skill Level: {profile.skill_level.value}\n"
+            f"- Tech Stack: {profile.tech_stack}\n"
+            f"- Development Experience: {profile.experience_years or 'Not specified'} years\n"
+            f"- Learning Goals: {profile.learning_goals or 'General knowledge'}\n\n"
+            "Generate a skill-calibrated answer with code snippets, citeable references, and follow-up questions."
+        )
 
-            response = await litellm.acompletion(
-                model=model_identifier,
-                api_key=settings.GEMINI_API_KEY,
-                response_format=StructuredChatbotOutput,
-                messages=[
-                    {"role": "system", "content": prompt_system},
-                    {"role": "user", "content": prompt_user},
-                ],
-                temperature=0.3,
-            )
+        response = await litellm.acompletion(
+            model=model_identifier,
+            api_key=settings.GEMINI_API_KEY,
+            response_format=StructuredChatbotOutput,
+            messages=[
+                {"role": "system", "content": prompt_system},
+                {"role": "user", "content": prompt_user},
+            ],
+            temperature=0.3,
+        )
 
-            if response and response.choices:
-                message = response.choices[0].message
-                if hasattr(message, "parsed") and message.parsed:
-                    output = message.parsed
-                elif hasattr(message, "content") and message.content:
-                    output = StructuredChatbotOutput.model_validate_json(message.content)
-        except Exception as exc:
-            logger.warning("LiteLLM call to Gemini chatbot model failed, using fallback generator: %s", exc)
+        output: StructuredChatbotOutput | None = None
+        if response and response.choices:
+            message = response.choices[0].message
+            if hasattr(message, "parsed") and message.parsed:
+                output = message.parsed
+            elif hasattr(message, "content") and message.content:
+                output = StructuredChatbotOutput.model_validate_json(message.content)
 
-    if output is None:
-        output = _build_fallback_response(question=question, skill_profile=profile)
+        if output is None:
+            raise RuntimeError("Failed to parse structured output response from LiteLLM.")
 
-    return {"generated_response": output}
+        return {"generated_response": output}
+    except Exception as exc:
+        logger.error("LiteLLM call to Gemini chatbot model failed: %s", exc)
+        raise RuntimeError(f"Chatbot service error: {str(exc)}") from exc
 
 
 def _build_chatbot_agent_graph() -> Any:

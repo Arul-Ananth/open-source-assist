@@ -23,6 +23,11 @@ async def query_chatbot(request: ChatbotRequest) -> ChatbotResponse:
     try:
         response = await chatbot_agent_service.answer_question(request)
         return response
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(exc),
+        ) from exc
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

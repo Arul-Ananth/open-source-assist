@@ -1,15 +1,49 @@
 """Unit and integration tests for Skill-Aware AI Chatbot."""
 
 import pytest
+from unittest.mock import patch, MagicMock
 from httpx import AsyncClient, ASGITransport
 from backend.main import app
-from backend.schemas.learning import SkillLevel
+from backend.core.config import settings
+from backend.schemas.learning import SkillLevel, MaterialType, CitedMaterial
 from backend.schemas.chatbot import (
     UserSkillProfile,
+    CodeSnippet,
     ChatbotRequest,
     ChatbotResponse,
+    StructuredChatbotOutput,
 )
 from backend.services.chatbot_agent import chatbot_agent_service
+
+
+def _get_mock_llm_response() -> MagicMock:
+    """Helper to mock LiteLLM completion response."""
+    mock_resp = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.parsed = StructuredChatbotOutput(
+        answer="Mocked skill-aware answer",
+        code_snippets=[
+            CodeSnippet(
+                language="python",
+                code="print('hello')",
+                explanation="Basic print statement example.",
+            )
+        ],
+        cited_references=[
+            CitedMaterial(
+                title="Mock Docs",
+                url="https://docs.mock.org",
+                material_type=MaterialType.OFFICIAL_DOCS,
+                difficulty_level=SkillLevel.BEGINNER,
+                snippet="Mock snippet",
+                relevance_rationale="Mock rationale",
+                topics=["python"],
+            )
+        ],
+        suggested_followups=["What is next?"],
+    )
+    mock_resp.choices = [mock_choice]
+    return mock_resp
 
 
 @pytest.mark.asyncio
@@ -33,8 +67,27 @@ async def test_chatbot_request_validation() -> None:
 
 
 @pytest.mark.asyncio
-async def test_chatbot_service_beginner_calibration() -> None:
-    """Test ChatbotAgentService response calibration for beginner developers."""
+async def test_chatbot_unconfigured_api_key_error(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test that requesting chatbot without GEMINI_API_KEY raises ValueError / 400 Bad Request."""
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", None)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as ac:
+        payload = {
+            "question": "What is Python?",
+            "skill_profile": {"skill_level": "beginner"},
+        }
+        response = await ac.post("/api/v1/chatbot/query", json=payload)
+
+    assert response.status_code == 400
+    assert "GEMINI_API_KEY is not configured" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_chatbot_service_execution(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test ChatbotAgentService execution when GEMINI_API_KEY is set."""
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "mock_key_123")
+
     profile = UserSkillProfile(
         skill_level=SkillLevel.BEGINNER,
         tech_stack=["Python"],
@@ -43,39 +96,22 @@ async def test_chatbot_service_beginner_calibration() -> None:
         question="What is a loop in Python?",
         skill_profile=profile,
     )
-    res = await chatbot_agent_service.answer_question(req)
+
+    with patch("litellm.acompletion", return_value=_get_mock_llm_response()):
+        res = await chatbot_agent_service.answer_question(req)
 
     assert isinstance(res, ChatbotResponse)
     assert res.question == req.question
     assert res.skill_level_used == SkillLevel.BEGINNER
     assert len(res.code_snippets) > 0
-    assert len(res.suggested_followups) > 0
-    assert res.duration_ms > 0
-    assert "gemini-3.5-flash" in res.model_used
+    assert res.answer == "Mocked skill-aware answer"
 
 
 @pytest.mark.asyncio
-async def test_chatbot_service_advanced_calibration() -> None:
-    """Test ChatbotAgentService response calibration for advanced developers."""
-    profile = UserSkillProfile(
-        skill_level=SkillLevel.ADVANCED,
-        tech_stack=["Python", "Rust", "Kubernetes"],
-        experience_years=8.0,
-    )
-    req = ChatbotRequest(
-        question="How do zero-copy network buffers impact async event loop throughput?",
-        skill_profile=profile,
-    )
-    res = await chatbot_agent_service.answer_question(req)
+async def test_chatbot_api_endpoint(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test POST /api/v1/chatbot/query endpoint integration with mocked LiteLLM."""
+    monkeypatch.setattr(settings, "GEMINI_API_KEY", "mock_key_123")
 
-    assert res.skill_level_used == SkillLevel.ADVANCED
-    assert len(res.code_snippets) > 0
-    assert res.code_snippets[0].explanation
-
-
-@pytest.mark.asyncio
-async def test_chatbot_api_endpoint() -> None:
-    """Test POST /api/v1/chatbot/query endpoint integration."""
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as ac:
         payload = {
@@ -87,16 +123,15 @@ async def test_chatbot_api_endpoint() -> None:
                 "learning_goals": ["API contract design"],
             },
         }
-        response = await ac.post("/api/v1/chatbot/query", json=payload)
+        with patch("litellm.acompletion", return_value=_get_mock_llm_response()):
+            response = await ac.post("/api/v1/chatbot/query", json=payload)
 
     assert response.status_code == 200
     data = response.json()
     assert data["question"] == payload["question"]
     assert data["skill_level_used"] == "intermediate"
-    assert "answer" in data
-    assert isinstance(data["code_snippets"], list)
-    assert isinstance(data["suggested_followups"], list)
-    assert data["duration_ms"] > 0
+    assert data["answer"] == "Mocked skill-aware answer"
+    assert len(data["code_snippets"]) > 0
 
 
 @pytest.mark.asyncio
