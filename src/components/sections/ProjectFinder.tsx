@@ -1,43 +1,59 @@
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { RotateCcw, SearchX, TriangleAlert } from 'lucide-react'
+import { RotateCcw, Search, SearchX, TriangleAlert } from 'lucide-react'
 import {
-  searchProjects,
-  fetchTopContributorsBatch,
-  projectKeys,
-  RateLimitError,
-} from '@/lib/github'
-import { Card, CardContent, CardFooter, CardHeader, Button, Skeleton, EmptyState } from '@/components/ui'
+  searchRepositories,
+  searchKeys,
+  BackendUnavailableError,
+  type SearchRepoItem,
+} from '@/lib/search'
+import { fetchTopContributorsBatch, projectKeys, RateLimitError } from '@/lib/github'
+import { Card, CardContent, CardFooter, CardHeader, Button, Input, Skeleton, EmptyState } from '@/components/ui'
 import { RepoCard, ContributorStackSkeleton, type FormattedRepo } from '@/components/shared'
 
-function formatRepos(items: import('@/lib/github').Repo[]): FormattedRepo[] {
-  return items.map((repo) => ({
-    id: repo.id,
-    fullName: repo.full_name,
-    owner: repo.owner.login,
-    ownerAvatarUrl: repo.owner.avatar_url,
-    url: repo.html_url,
-    description: repo.description,
-    stars: repo.stargazers_count,
-    forks: repo.forks_count,
-    openIssues: repo.open_issues_count,
-    language: repo.language,
-    topics: repo.topics.slice(0, 3),
-    pushedAt: repo.pushed_at,
-  }))
+const DEFAULT_QUERY = 'beginner-friendly open source libraries for building web apps'
+
+const QUICK_TOPICS = [
+  'web frameworks',
+  'vector databases',
+  'machine learning',
+  'async runtimes',
+  'microservices',
+] as const
+
+function formatRepo(item: SearchRepoItem): FormattedRepo {
+  const owner = item.full_name.split('/')[0]
+  return {
+    id: item.repo_id,
+    fullName: item.full_name,
+    owner,
+    ownerAvatarUrl: `https://github.com/${owner}.png?size=64`,
+    url: item.html_url,
+    description: item.description,
+    stars: item.stars,
+    forks: item.forks,
+    openIssues: item.open_issues,
+    language: item.language,
+    topics: item.topics.slice(0, 3),
+    pushedAt: item.pushed_at ?? new Date().toISOString(),
+  }
 }
 
 export function ProjectFinder() {
-  const { data: repos = [], isPending, isError, error, refetch, isFetching } = useQuery({
-    queryKey: projectKeys.all,
-    queryFn: ({ signal }) => searchProjects(signal),
-    select: (data) => formatRepos(data.items).slice(0, 3),
-    staleTime: 10 * 60 * 1000,
+  const [inputValue, setInputValue] = useState('')
+  const [query, setQuery] = useState(DEFAULT_QUERY)
+
+  const { data, isPending, isError, error, refetch, isFetching } = useQuery({
+    queryKey: searchKeys.query(query),
+    queryFn: ({ signal }) => searchRepositories({ query, limit: 6, signal }),
+    staleTime: 5 * 60 * 1000,
     retry: (failureCount, err) => {
-      if (err instanceof RateLimitError) return false
+      if (err instanceof BackendUnavailableError || err instanceof RateLimitError) return false
       return failureCount < 1
     },
   })
 
+  const repos = useMemo(() => (data?.items ?? []).map(formatRepo), [data])
   const repoNames = repos.map((r) => r.fullName)
 
   // One batched call for all repos (cached + owner fallback inside).
@@ -54,26 +70,72 @@ export function ProjectFinder() {
 
   const contributorsMap = contributorsQuery.data ?? {}
 
+  const runSearch = (raw: string) => {
+    const next = raw.trim()
+    if (next.length === 0 || next === query) return
+    setQuery(next)
+  }
+
   return (
     <section id="finder" className="mx-auto max-w-[1240px] scroll-mt-24 px-5 py-24 sm:px-8">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <p className="eyebrow">Explore — live preview</p>
+          <p className="eyebrow">Discover — semantic search</p>
           <h2 className="section-h2 section-underline max-w-[24ch]">
-            GitHub's most starred repos, right now
+            Describe what you want to build
           </h2>
           <p className="section-body mt-6">
-            The three most-starred, actively maintained repositories on
-            GitHub — globally — with their top three contributors. Sign up
-            to save favorites and get a roadmap built around your stack.
+            Search open-source repositories by meaning, not keywords — powered by
+            vector embeddings and popularity-aware ranking. Sign up to save
+            favorites and get a roadmap built around your stack.
           </p>
         </div>
-        <span className="chip-neutral hidden font-mono md:inline-flex">module: explore</span>
+        <span className="chip-neutral hidden font-mono md:inline-flex">module: search</span>
+      </div>
+
+      <form
+        className="mt-8 flex flex-col gap-3 sm:flex-row"
+        role="search"
+        onSubmit={(event) => {
+          event.preventDefault()
+          runSearch(inputValue)
+        }}
+      >
+        <Input
+          type="search"
+          value={inputValue}
+          onChange={(event) => setInputValue(event.target.value)}
+          placeholder="e.g. lightweight async web framework for python"
+          aria-label="Search open-source repositories"
+          maxLength={500}
+          className="h-11 flex-1"
+        />
+        <Button type="submit" size="lg" disabled={isFetching} className="h-11">
+          <Search className="size-4" aria-hidden="true" />
+          {isFetching ? 'Searching…' : 'Search'}
+        </Button>
+      </form>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="font-mono text-[11px] text-muted-foreground">try:</span>
+        {QUICK_TOPICS.map((topic) => (
+          <button
+            key={topic}
+            type="button"
+            onClick={() => {
+              setInputValue(topic)
+              runSearch(topic)
+            }}
+            className="chip-neutral transition-colors hover:border-accent hover:text-accent-text"
+          >
+            {topic}
+          </button>
+        ))}
       </div>
 
       {isPending ? (
         <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-3">
-          {Array.from({ length: 3 }).map((_, i) => (
+          {Array.from({ length: 6 }).map((_, i) => (
             <Card key={i}>
               <CardHeader>
                 <div className="flex items-center gap-3">
@@ -97,8 +159,14 @@ export function ProjectFinder() {
         <EmptyState
           icon={TriangleAlert}
           iconClassName="text-accent-text"
-          title="Could not load projects"
-          description={error instanceof Error ? error.message : 'Something went wrong. Please try again.'}
+          title="Could not run that search"
+          description={
+            error instanceof BackendUnavailableError
+              ? error.message
+              : error instanceof Error
+                ? error.message
+                : 'Something went wrong. Please try again.'
+          }
           action={
             <Button variant="secondary" size="sm" onClick={() => refetch()}>
               <RotateCcw className="size-3.5" aria-hidden="true" />
@@ -109,28 +177,37 @@ export function ProjectFinder() {
       ) : repos.length === 0 ? (
         <EmptyState
           icon={SearchX}
-          title="No projects match those filters"
-          description="Try a different language or issue type."
+          title="No repositories matched that query"
+          description="Try a broader description — different words, a wider domain, or one of the quick topics above."
         />
       ) : (
-        <div
-          className={`mt-8 grid grid-cols-1 gap-5 transition-opacity duration-300 md:grid-cols-3 ${
-            isFetching ? 'opacity-60' : 'opacity-100'
-          }`}
-        >
-          {repos.map((repo, i) => (
-            <RepoCard
-              key={repo.id}
-              repo={repo}
-              contributors={contributorsMap[repo.fullName]}
-              index={i}
-            />
-          ))}
-        </div>
+        <>
+          <p
+            className={`mt-8 font-mono text-xs text-muted-foreground transition-opacity duration-300 ${
+              isFetching ? 'opacity-60' : 'opacity-100'
+            }`}
+          >
+            {repos.length} of {data?.total ?? repos.length} matches · semantic ranking ·{' '}
+            {isFetching ? 'searching…' : `${(data?.duration_ms ?? 0).toFixed(0)}ms`}
+          </p>
+          <div
+            className={`mt-3 grid grid-cols-1 gap-5 transition-opacity duration-300 md:grid-cols-3 ${
+              isFetching ? 'opacity-60' : 'opacity-100'
+            }`}
+          >
+            {repos.map((repo, i) => (
+              <RepoCard
+                key={repo.id}
+                repo={repo}
+                contributors={contributorsMap[repo.fullName]}
+                index={i}
+              />
+            ))}
+          </div>
+        </>
       )}
     </section>
   )
 }
 
 export default ProjectFinder
-
