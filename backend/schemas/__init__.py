@@ -21,6 +21,13 @@ from backend.schemas.learning import (
     LearningMaterialResponse,
     StructuredAgentOutput,
 )
+from backend.schemas.chatbot import (
+    UserSkillProfile,
+    CodeSnippet,
+    ChatbotRequest,
+    StructuredChatbotOutput,
+    ChatbotResponse,
+)
 
 __all__ = [
     "RepoSearchFilter",
@@ -38,6 +45,12 @@ __all__ = [
     "LearningMaterialRequest",
     "LearningMaterialResponse",
     "StructuredAgentOutput",
+    "UserSkillProfile",
+    "CodeSnippet",
+    "ChatbotRequest",
+    "StructuredChatbotOutput",
+    "ChatbotResponse",
 ]
+
 
 
