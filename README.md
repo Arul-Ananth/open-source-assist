@@ -4,6 +4,32 @@ Welcome to the comprehensive technical documentation for the **Open Source Assis
 
 This module provides an asynchronous, high-throughput semantic search engine that indexes open-source software repositories into **Qdrant Vector Database** and re-ranks results using a **Multiplicative Gate** popularity weighting algorithm.
 
+## ⚡ Quick Start
+
+To start all services (PostgreSQL migration check, FastAPI backend, and Vite frontend) with a single command:
+
+**Windows (PowerShell):**
+```powershell
+.\start.ps1
+```
+
+**Windows (Command Prompt / Double Click):**
+```cmd
+start.bat
+```
+
+To stop all running services:
+```powershell
+.\stop.ps1
+# or
+stop.bat
+```
+
+Services started:
+* **Frontend UI**: [http://localhost:5173](http://localhost:5173)
+* **Backend API & Swagger Docs**: [http://localhost:8000/docs](http://localhost:8000/docs)
+* **Backend Health**: [http://localhost:8000/health](http://localhost:8000/health)
+
 ---
 
 ## 📚 Documentation Index
