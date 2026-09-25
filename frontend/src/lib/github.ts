@@ -29,6 +29,7 @@ export class RateLimitError extends Error {
 /** Centralized Query Key Factory for TanStack Query */
 export const projectKeys = {
   all: ['projects'] as const,
+  bySource: (source: string) => ['projects', source] as const,
   contributors: (repos: string[]) => ['contributors-batch', repos] as const,
 }
 
@@ -133,10 +134,64 @@ export interface SearchResponse {
 }
 
 /**
- * Global top repositories: the three most-starred actively-maintained repos
- * on GitHub, dynamically filtering for recent commits.
+ * Query the backend semantic search endpoint (/api/v1/search).
  */
-export async function searchProjects(signal?: AbortSignal): Promise<SearchResponse> {
+export async function searchBackendProjects(
+  query = 'open source machine learning web tools',
+  signal?: AbortSignal,
+): Promise<SearchResponse> {
+  const res = await fetch('/api/v1/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query, limit: 3 }),
+    signal,
+  })
+
+  if (!res.ok) {
+    throw new Error(`Backend search error (${res.status})`)
+  }
+
+  const data = await res.json()
+  return {
+    total_count: data.total ?? data.items?.length ?? 0,
+    items: (data.items || []).map((item: any) => ({
+      id: item.repo_id,
+      full_name: item.full_name,
+      owner: {
+        login: item.full_name.split('/')[0] || 'owner',
+        avatar_url: `https://github.com/${item.full_name.split('/')[0]}.png`,
+      },
+      html_url: item.html_url,
+      description: item.description,
+      stargazers_count: item.stars,
+      forks_count: item.forks,
+      open_issues_count: item.open_issues,
+      language: item.language,
+      topics: item.topics || [],
+      pushed_at: item.pushed_at || new Date().toISOString(),
+    })),
+  }
+}
+
+/**
+ * Fetch top repositories. Defaults to trying the backend semantic search first,
+ * then falling back to GitHub API search if the backend is unavailable.
+ */
+export async function searchProjects(
+  signal?: AbortSignal,
+  source: 'backend' | 'github' = 'backend',
+): Promise<SearchResponse> {
+  if (source === 'backend') {
+    try {
+      const backendData = await searchBackendProjects('open source developer tools', signal)
+      if (backendData.items && backendData.items.length > 0) {
+        return backendData
+      }
+    } catch {
+      // Backend not running or no embeddings yet: gracefully fall back to GitHub
+    }
+  }
+
   const oneYearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
   const query = `stars:>10000 pushed:>${oneYearAgo}`
   const url =

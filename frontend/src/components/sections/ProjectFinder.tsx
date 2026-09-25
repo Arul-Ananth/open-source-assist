@@ -1,3 +1,4 @@
+import * as React from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { RotateCcw, SearchX, TriangleAlert } from 'lucide-react'
 import {
@@ -27,9 +28,11 @@ function formatRepos(items: import('@/lib/github').Repo[]): FormattedRepo[] {
 }
 
 export function ProjectFinder() {
+  const [source, setSource] = React.useState<'backend' | 'github'>('backend')
+
   const { data: repos = [], isPending, isError, error, refetch, isFetching } = useQuery({
-    queryKey: projectKeys.all,
-    queryFn: ({ signal }) => searchProjects(signal),
+    queryKey: projectKeys.bySource(source),
+    queryFn: ({ signal }) => searchProjects(signal, source),
     select: (data) => formatRepos(data.items).slice(0, 3),
     staleTime: 10 * 60 * 1000,
     retry: (failureCount, err) => {
@@ -68,7 +71,14 @@ export function ProjectFinder() {
             to save favorites and get a roadmap built around your stack.
           </p>
         </div>
-        <span className="chip-neutral hidden font-mono md:inline-flex">module: explore</span>
+        <button
+          type="button"
+          onClick={() => setSource((s) => (s === 'backend' ? 'github' : 'backend'))}
+          className="chip-neutral font-mono text-xs cursor-pointer hover:border-accent transition-colors"
+          title="Toggle search source: Backend Semantic Search vs GitHub Live"
+        >
+          source: {source === 'backend' ? 'backend-semantic' : 'github-live'}
+        </button>
       </div>
 
       {isPending ? (

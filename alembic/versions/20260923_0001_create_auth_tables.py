@@ -18,12 +18,14 @@ def upgrade() -> None:
         "users",
         sa.Column("id", sa.Uuid(), primary_key=True),
         sa.Column("email", sa.String(length=320), nullable=False),
+        sa.Column("username", sa.String(length=50), nullable=True),
         sa.Column("password_hash", sa.String(length=255), nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False, server_default=sa.func.now()),
     )
     op.create_index("ix_users_email", "users", ["email"], unique=True)
+    op.create_index("ix_users_username", "users", ["username"], unique=False)
 
     op.create_table(
         "otps",

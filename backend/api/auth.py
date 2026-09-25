@@ -30,7 +30,11 @@ async def signup(payload: SignupRequest, db: AsyncSession = Depends(get_db)) -> 
     """
     try:
         await AuthService.request_signup(
-            db, payload.email, payload.password, payload.confirm_password
+            db,
+            payload.email,
+            payload.password,
+            payload.confirm_password,
+            payload.username,
         )
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
@@ -88,4 +92,8 @@ async def reset_password(
 @router.get("/me", response_model=UserProfileResponse, status_code=status.HTTP_200_OK)
 async def get_me(current_user: dict[str, Any] = Depends(get_current_user)) -> UserProfileResponse:
     """Return profile details for the currently authenticated user."""
-    return UserProfileResponse(id=current_user["user_id"], email=current_user["email"])
+    return UserProfileResponse(
+        id=current_user["user_id"],
+        email=current_user["email"],
+        username=current_user.get("username"),
+    )

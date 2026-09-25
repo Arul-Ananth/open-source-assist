@@ -117,16 +117,16 @@ This document tracks all FastAPI endpoint contracts, request payloads, and respo
 ### 4. User Signup (Initiation)
 * **Endpoint**: `POST /api/v1/auth/signup`
 * **Status**: `200 OK`
-* **Request Body**: `{ "email": "user@example.com", "password": "password123", "confirm_password": "password123" }`
+* **Request Body**: `{ "username": "octocat", "email": "user@example.com", "password": "password123", "confirm_password": "password123" }`
 * **Response Body**: `{ "message": "Verification code sent to your email" }`
-* **Description**: Validates payload and stages an ephemeral OTP. Does not create a user record in the primary `users` table until verified.
+* **Description**: Validates payload and stages an ephemeral OTP with optional username. Does not create a user record in the primary `users` table until verified.
 
 ### 5. Verify Signup OTP & Registration Finalization
 * **Endpoint**: `POST /api/v1/auth/verify-signup-otp`
 * **Status**: `201 Created`
 * **Request Body**: `{ "email": "user@example.com", "otp": "123456" }`
 * **Response Body**: `{ "access_token": "<jwt>", "token_type": "bearer", "message": "User registered and verified successfully" }`
-* **Description**: Verifies the 6-digit registration code, creates the verified user with UUID in PostgreSQL, consumes the OTP, and returns a signed bearer access token.
+* **Description**: Verifies the 6-digit registration code, creates the verified user with UUID and staged username in PostgreSQL, consumes the OTP, and returns a signed bearer access token.
 
 ### 6. User Login
 * **Endpoint**: `POST /api/v1/auth/login`
@@ -151,6 +151,6 @@ This document tracks all FastAPI endpoint contracts, request payloads, and respo
 * **Endpoint**: `GET /api/v1/auth/me`
 * **Status**: `200 OK`
 * **Headers**: `Authorization: Bearer <jwt>`
-* **Response Body**: `{ "id": "<uuid>", "email": "user@example.com" }`
+* **Response Body**: `{ "id": "<uuid>", "email": "user@example.com", "username": "octocat" }`
 
 

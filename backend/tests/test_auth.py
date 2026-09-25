@@ -235,6 +235,7 @@ async def test_auth_dependencies(auth_session) -> None:
         await client.post(
             "/api/v1/auth/signup",
             json={
+                "username": "testcontributor",
                 "email": "dep_test@example.com",
                 "password": "valid-password-789",
                 "confirm_password": "valid-password-789",
@@ -254,6 +255,7 @@ async def test_auth_dependencies(auth_session) -> None:
         assert res_me.status_code == 200
         profile = res_me.json()
         assert profile["email"] == "dep_test@example.com"
+        assert profile["username"] == "testcontributor"
         assert profile["id"]  # valid UUID
 
         # 2. Call protected /me endpoint with invalid bearer token -> 401

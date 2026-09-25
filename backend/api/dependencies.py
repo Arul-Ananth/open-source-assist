@@ -50,7 +50,12 @@ async def get_optional_current_user(
     if user is None:
         return None
 
-    return {"user_id": str(user.id), "email": user.email, "token": token}
+    return {
+        "user_id": str(user.id),
+        "email": user.email,
+        "username": user.username,
+        "token": token,
+    }
 
 
 async def get_current_user(

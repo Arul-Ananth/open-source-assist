@@ -7,6 +7,9 @@ class SignupRequest(BaseModel):
     """Payload to initiate user registration and dispatch verification OTP."""
 
     email: EmailStr = Field(description="Account email address.")
+    username: str | None = Field(
+        default=None, min_length=3, max_length=50, description="Account display username."
+    )
     password: str = Field(min_length=8, max_length=128, description="Account password.")
     confirm_password: str = Field(
         min_length=8, max_length=128, description="Password confirmation."
@@ -85,4 +88,6 @@ class UserProfileResponse(BaseModel):
 
     id: str = Field(description="User unique identifier UUID.")
     email: EmailStr = Field(description="User account email address.")
+    username: str | None = Field(default=None, description="Account display username.")
+
 

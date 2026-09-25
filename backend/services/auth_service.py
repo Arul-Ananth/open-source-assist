@@ -17,7 +17,11 @@ class AuthService:
 
     @staticmethod
     async def request_signup(
-        db: AsyncSession, email: str, password: str, confirm_password: str
+        db: AsyncSession,
+        email: str,
+        password: str,
+        confirm_password: str,
+        username: str | None = None,
     ) -> None:
         """Validate registration request and dispatch signup verification OTP.
         
@@ -35,11 +39,15 @@ class AuthService:
 
         # Hash password and store alongside OTP in ephemeral table
         password_hash = hash_password(password)
+        payload = {"password_hash": password_hash}
+        if username:
+            payload["username"] = username.strip()
+
         await OTPService.generate_and_store_otp(
             db=db,
             email=normalized_email,
             purpose=OTPPurpose.SIGNUP_VERIFICATION,
-            payload={"password_hash": password_hash},
+            payload=payload,
         )
 
     @staticmethod
@@ -70,6 +78,7 @@ class AuthService:
         user = User(
             id=uuid.uuid4(),
             email=normalized_email,
+            username=payload.get("username"),
             password_hash=payload["password_hash"],
             is_active=True,
         )
