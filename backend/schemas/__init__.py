@@ -22,6 +22,22 @@ from backend.schemas.search import (
     RepoSearchRequest,
     RepoSearchResponse,
 )
+from backend.schemas.learning import (
+    SkillLevel,
+    MaterialType,
+    CitedMaterial,
+    LearningModule,
+    LearningMaterialRequest,
+    LearningMaterialResponse,
+    StructuredAgentOutput,
+)
+from backend.schemas.chatbot import (
+    UserSkillProfile,
+    CodeSnippet,
+    ChatbotRequest,
+    StructuredChatbotOutput,
+    ChatbotResponse,
+)
 
 __all__ = [
     "AuthResponse",
@@ -40,4 +56,16 @@ __all__ = [
     "SignupRequest",
     "TokenResponse",
     "VerifySignupOTPRequest",
+    "SkillLevel",
+    "MaterialType",
+    "CitedMaterial",
+    "LearningModule",
+    "LearningMaterialRequest",
+    "LearningMaterialResponse",
+    "StructuredAgentOutput",
+    "UserSkillProfile",
+    "CodeSnippet",
+    "ChatbotRequest",
+    "StructuredChatbotOutput",
+    "ChatbotResponse",
 ]

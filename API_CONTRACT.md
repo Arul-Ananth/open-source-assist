@@ -152,5 +152,89 @@ This document tracks all FastAPI endpoint contracts, request payloads, and respo
 * **Status**: `200 OK`
 * **Headers**: `Authorization: Bearer <jwt>`
 * **Response Body**: `{ "id": "<uuid>", "email": "user@example.com", "username": "octocat" }`
+## [v0.2.0] - 2026-09-22: AI Learning Materials & Citation Agent Endpoint
+
+### 4. Skill-Tailored Online Learning Materials & Citations
+* **Endpoint**: `POST /api/v1/learning/materials`
+* **Status**: `200 OK`
+* **Description**: Executes an AI Agent workflow powered by Gemini API (`gemini-3.5-flash`) and LangGraph to generate personalized step-by-step learning modules and citeable online resources.
+* **Request Body** (`LearningMaterialRequest`):
+  ```json
+  {
+    "topic": "FastAPI Async Microservices",
+    "skill_level": "intermediate",
+    "user_context": "2 years of Python background",
+    "limit": 5
+  }
+  ```
+* **Response Body** (`LearningMaterialResponse`):
+  ```json
+  {
+    "topic": "FastAPI Async Microservices",
+    "skill_level": "intermediate",
+    "summary": "Curated Intermediate-level learning materials for FastAPI Async Microservices.",
+    "modules": [],
+    "cited_materials": [],
+    "duration_ms": 142.5,
+    "model_used": "gemini-3.5-flash"
+  }
+  ```
+
+---
+
+## [v0.3.0] - 2026-09-24: Skill-Aware AI Chatbot Endpoint
+
+### 5. Skill-Calibrated Developer Q&A
+* **Endpoint**: `POST /api/v1/chatbot/query`
+* **Status**: `200 OK`
+* **Description**: Executes a skill-aware Q&A agent workflow powered by LiteLLM (Gemini `gemini-3.5-flash`) and LangGraph. Calibrates explanation depth, code complexity, technical vocabulary, and citations strictly to the user's skill level, experience, tech stack, and learning goals.
+* **Headers**:
+  * `Content-Type: application/json`
+  * `Authorization: Bearer <token>` (Optional)
+* **Request Body** (`ChatbotRequest`):
+  ```json
+  {
+    "question": "How do I implement async exception boundaries and context cleanup in FastAPI?",
+    "skill_profile": {
+      "skill_level": "intermediate",
+      "tech_stack": ["Python", "FastAPI", "Docker"],
+      "experience_years": 2.5,
+      "learning_goals": ["Master microservice architecture and async error isolation"]
+    }
+  }
+  ```
+* **Response Body** (`ChatbotResponse`):
+  ```json
+  {
+    "question": "How do I implement async exception boundaries and context cleanup in FastAPI?",
+    "skill_level_used": "intermediate",
+    "answer": "Here is an intermediate architectural breakdown addressing 'How do I implement async exception boundaries...'. Focusing on modular separation, async processing, and structured error boundaries.",
+    "code_snippets": [
+      {
+        "language": "python",
+        "code": "import asyncio\nimport logging\n\nlogger = logging.getLogger(__name__)\n\nasync def process_task(task_id: int) -> dict[str, str]:\n    logger.info(f'Executing task {task_id}')\n    await asyncio.sleep(0.1)\n    return {'status': 'completed', 'task_id': str(task_id)}",
+        "explanation": "Demonstrates asynchronous function execution, non-blocking I/O, and structured logging."
+      }
+    ],
+    "cited_references": [
+      {
+        "title": "Official Guide & Reference: How do I implement async exception boundar...",
+        "url": "https://docs.reference.org/search?q=how+do+i+implement+async+exception+boundar...",
+        "material_type": "official_docs",
+        "difficulty_level": "intermediate",
+        "snippet": "Official technical documentation and API reference.",
+        "relevance_rationale": "Authoritative documentation adapted for Intermediate proficiency level.",
+        "topics": ["Python", "FastAPI", "Docker"]
+      }
+    ],
+    "suggested_followups": [
+      "How can I handle concurrency limits and task cancellation gracefully?",
+      "What are the best practices for unit testing this async handler?"
+    ],
+    "duration_ms": 115.4,
+    "model_used": "gemini-3.5-flash"
+  }
+  ```
+
 
 
