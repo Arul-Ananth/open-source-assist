@@ -4,7 +4,8 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from sqlalchemy import DateTime, Enum as SqlEnum, Integer, JSON, String, UniqueConstraint, func
+from sqlalchemy import JSON, DateTime, Integer, String, UniqueConstraint, func
+from sqlalchemy import Enum as SqlEnum
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.core.database import Base

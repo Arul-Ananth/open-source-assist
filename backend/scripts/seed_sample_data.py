@@ -5,9 +5,10 @@ Can be run directly via:
 """
 
 import asyncio
+
 from backend.schemas.ingest import BatchRepoIngestRequest, RepoIngestItem
-from backend.services.search_service import search_service
 from backend.services.qdrant_service import qdrant_service
+from backend.services.search_service import search_service
 
 SAMPLE_REPOSITORIES = [
     RepoIngestItem(

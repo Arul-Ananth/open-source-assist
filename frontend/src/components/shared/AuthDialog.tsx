@@ -537,7 +537,7 @@ export function AuthDialog({ open, onClose, initialMode = 'login' }: AuthDialogP
       {/* Footer strip */}
       <div className="auth-footer border-t border-border px-6 py-2.5 sm:px-7">
         <p className="flex items-center justify-between font-mono text-[10px] text-muted-foreground">
-          <span>credentials never leave your browser</span>
+          <span>secure connection · encrypted session</span>
           <span className="text-accent-text">v1.0</span>
         </p>
       </div>

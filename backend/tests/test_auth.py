@@ -155,7 +155,7 @@ async def test_password_mismatch_fails_in_pydantic() -> None:
 
 @pytest.mark.asyncio
 async def test_password_reset_flow(auth_session) -> None:
-    session, signup_otps, reset_otps = auth_session
+    _session, signup_otps, reset_otps = auth_session
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Create user via signup + verification
@@ -228,7 +228,7 @@ async def test_password_reset_flow(auth_session) -> None:
 
 @pytest.mark.asyncio
 async def test_auth_dependencies(auth_session) -> None:
-    session, signup_otps, _ = auth_session
+    _session, signup_otps, _ = auth_session
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         # Register user

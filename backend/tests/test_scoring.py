@@ -1,9 +1,10 @@
 """Unit tests for scoring strategies and popularity normalization."""
 
 import pytest
+
 from backend.services.scoring_strategy import (
-    MultiplicativeGateStrategy,
     LinearHybridStrategy,
+    MultiplicativeGateStrategy,
     get_scoring_strategy,
 )
 from backend.services.search_service import SearchService

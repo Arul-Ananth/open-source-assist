@@ -1,6 +1,6 @@
 """JWT access-token creation and decoding helpers."""
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from jose import JWTError, jwt
@@ -10,7 +10,7 @@ from backend.core.config import settings
 
 def create_access_token(subject: str) -> str:
     """Create a signed bearer token with a two-hour default lifetime."""
-    expires_at = datetime.now(timezone.utc) + timedelta(
+    expires_at = datetime.now(UTC) + timedelta(
         minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES
     )
     payload: dict[str, Any] = {"sub": subject, "exp": expires_at}

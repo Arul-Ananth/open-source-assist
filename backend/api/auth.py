@@ -1,9 +1,10 @@
 """HTTP endpoints for authentication, registration verification, and password recovery."""
 
+from typing import Annotated, Any
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from typing import Any
 from backend.api.dependencies import get_current_user
 from backend.core.database import get_db
 from backend.schemas.auth import (
@@ -23,7 +24,10 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
 @router.post("/signup", response_model=MessageResponse, status_code=status.HTTP_200_OK)
-async def signup(payload: SignupRequest, db: AsyncSession = Depends(get_db)) -> MessageResponse:
+async def signup(
+    payload: SignupRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> MessageResponse:
     """Initiate registration by validating payload and dispatching an email verification OTP.
     
     The user is not persisted to the database until OTP verification is completed.
@@ -36,7 +40,7 @@ async def signup(payload: SignupRequest, db: AsyncSession = Depends(get_db)) -> 
             payload.confirm_password,
             payload.username,
         )
-    except ValueError as exc:
+    except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     return MessageResponse(message="Verification code sent to your email")
 
@@ -45,7 +49,8 @@ async def signup(payload: SignupRequest, db: AsyncSession = Depends(get_db)) -> 
     "/verify-signup-otp", response_model=AuthResponse, status_code=status.HTTP_201_CREATED
 )
 async def verify_signup_otp(
-    payload: VerifySignupOTPRequest, db: AsyncSession = Depends(get_db)
+    payload: VerifySignupOTPRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> AuthResponse:
     """Verify signup OTP, persist user into the database, and issue access token."""
     try:
@@ -59,7 +64,10 @@ async def verify_signup_otp(
 
 
 @router.post("/login", response_model=TokenResponse, status_code=status.HTTP_200_OK)
-async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> TokenResponse:
+async def login(
+    payload: LoginRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> TokenResponse:
     """Verify user credentials and return signed access token."""
     try:
         token = await AuthService.login(db, payload.email, payload.password)
@@ -70,7 +78,8 @@ async def login(payload: LoginRequest, db: AsyncSession = Depends(get_db)) -> To
 
 @router.post("/forgot-password", response_model=MessageResponse, status_code=status.HTTP_200_OK)
 async def forgot_password(
-    payload: ForgotPasswordRequest, db: AsyncSession = Depends(get_db)
+    payload: ForgotPasswordRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> MessageResponse:
     """Issue a password-reset OTP without leaking account existence."""
     await AuthService.request_password_reset(db, payload.email)
@@ -79,7 +88,8 @@ async def forgot_password(
 
 @router.post("/reset-password", response_model=MessageResponse, status_code=status.HTTP_200_OK)
 async def reset_password(
-    payload: ResetPasswordRequest, db: AsyncSession = Depends(get_db)
+    payload: ResetPasswordRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> MessageResponse:
     """Verify a single-use OTP and replace the account password."""
     try:
@@ -90,7 +100,9 @@ async def reset_password(
 
 
 @router.get("/me", response_model=UserProfileResponse, status_code=status.HTTP_200_OK)
-async def get_me(current_user: dict[str, Any] = Depends(get_current_user)) -> UserProfileResponse:
+async def get_me(
+    current_user: Annotated[dict[str, Any], Depends(get_current_user)],
+) -> UserProfileResponse:
     """Return profile details for the currently authenticated user."""
     return UserProfileResponse(
         id=current_user["user_id"],

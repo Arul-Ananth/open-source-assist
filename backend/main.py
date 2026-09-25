@@ -1,14 +1,16 @@
 """FastAPI main application entrypoint for open-source-assist."""
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+
+from backend.api.auth import router as auth_router
+from backend.api.routes.search import router as search_router
 from backend.core.config import settings
 from backend.core.database import engine
 from backend.services.qdrant_service import qdrant_service
-from backend.api.routes.search import router as search_router
-from backend.api.auth import router as auth_router
 
 
 @asynccontextmanager

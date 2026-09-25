@@ -1,6 +1,7 @@
 """Business logic for user registration, verification, authentication, and password recovery."""
 
 import uuid
+
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession

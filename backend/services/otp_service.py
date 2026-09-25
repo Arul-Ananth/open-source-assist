@@ -1,7 +1,7 @@
 """Business logic for ephemeral OTP generation, storage, and consumption."""
 
 import secrets
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import delete, select
@@ -32,7 +32,7 @@ class OTPService:
         )
 
         otp = f"{secrets.randbelow(1_000_000):06d}"
-        expires_at = datetime.now(timezone.utc) + timedelta(minutes=settings.OTP_EXPIRE_MINUTES)
+        expires_at = datetime.now(UTC) + timedelta(minutes=settings.OTP_EXPIRE_MINUTES)
 
         otp_record = OTP(
             email=normalized_email,
@@ -61,7 +61,7 @@ class OTPService:
     ) -> dict[str, Any] | None:
         """Verify the OTP against the stored HMAC. If valid, deletes the record and returns payload."""
         normalized_email = email.strip().lower()
-        now = datetime.now(timezone.utc)
+        now = datetime.now(UTC)
 
         record = await db.scalar(
             select(OTP).where(
@@ -76,7 +76,7 @@ class OTPService:
         # Check expiration
         expires_at = record.expires_at
         if expires_at.tzinfo is None:
-            expires_at = expires_at.replace(tzinfo=timezone.utc)
+            expires_at = expires_at.replace(tzinfo=UTC)
 
         if expires_at <= now:
             await db.delete(record)

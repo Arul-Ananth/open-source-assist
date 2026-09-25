@@ -2,7 +2,6 @@
 
 import os
 
-
 TEST_SETTINGS = {
     "ENVIRONMENT": "testing",
     "API_V1_PREFIX": "/api/v1",

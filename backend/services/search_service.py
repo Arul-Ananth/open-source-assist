@@ -2,22 +2,23 @@
 
 import math
 import time
+
 from backend.core.config import settings
-from backend.schemas.search import (
-    RepoSearchRequest,
-    RepoSearchResponse,
-    RepoItem,
-    RepoScoreBreakdown,
-)
 from backend.schemas.ingest import (
     BatchRepoIngestRequest,
     BatchRepoIngestResponse,
 )
+from backend.schemas.search import (
+    RepoItem,
+    RepoScoreBreakdown,
+    RepoSearchRequest,
+    RepoSearchResponse,
+)
 from backend.services.embedding_service import EmbeddingService, embedding_service
 from backend.services.qdrant_service import QdrantService, qdrant_service
 from backend.services.scoring_strategy import (
-    ScoringStrategy,
     MultiplicativeGateStrategy,
+    ScoringStrategy,
 )
 
 

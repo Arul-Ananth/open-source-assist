@@ -6,11 +6,13 @@ contained in this file.
 """
 
 from typing import Any
+
 from fastapi import APIRouter, Depends, status
-from backend.schemas.search import RepoSearchRequest, RepoSearchResponse
+
+from backend.api.dependencies import get_optional_current_user, get_search_service
 from backend.schemas.ingest import BatchRepoIngestRequest, BatchRepoIngestResponse
+from backend.schemas.search import RepoSearchRequest, RepoSearchResponse
 from backend.services.search_service import SearchService
-from backend.api.dependencies import get_search_service, get_optional_current_user
 
 router = APIRouter(prefix="", tags=["Search"])
 

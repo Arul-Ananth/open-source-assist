@@ -15,7 +15,6 @@ class ScoringStrategy(ABC):
     @abstractmethod
     def name(self) -> str:
         """Return the unique name of the scoring strategy."""
-        pass
 
     @abstractmethod
     def calculate_score(
@@ -34,7 +33,6 @@ class ScoringStrategy(ABC):
         Returns:
             Calculated final ranking score.
         """
-        pass
 
 
 class MultiplicativeGateStrategy(ScoringStrategy):

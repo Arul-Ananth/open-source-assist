@@ -1,7 +1,7 @@
 """FastAPI dependencies for dependency injection across routes."""
 
 import uuid
-from typing import Any
+from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
@@ -29,8 +29,8 @@ def get_qdrant_service() -> QdrantService:
 
 
 async def get_optional_current_user(
-    credentials: HTTPAuthorizationCredentials | None = Depends(bearer_security),
-    db: AsyncSession = Depends(get_db),
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_security)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any] | None:
     """Decode an optional bearer token and verify user state without blocking guest access."""
     if credentials is None:
@@ -59,7 +59,7 @@ async def get_optional_current_user(
 
 
 async def get_current_user(
-    user: dict[str, Any] | None = Depends(get_optional_current_user),
+    user: Annotated[dict[str, Any] | None, Depends(get_optional_current_user)],
 ) -> dict[str, Any]:
     """Require valid bearer token and active user account."""
     if user is None:

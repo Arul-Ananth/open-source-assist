@@ -5,14 +5,14 @@ Pydantic validation, embedding generation, and ranking logic without
 requiring a live external Qdrant Server process during automated CI/CD runs.
 """
 
-from typing import Any
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 from qdrant_client import models
+
 from backend.main import app
-from backend.services.qdrant_service import qdrant_service
 from backend.schemas.ingest import RepoIngestItem
 from backend.schemas.search import RepoSearchFilter
+from backend.services.qdrant_service import qdrant_service
 
 
 class InMemoryQdrantMock:
