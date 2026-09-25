@@ -4,7 +4,9 @@ Strictly connects to a standalone Qdrant Server (Local Docker, Self-Hosted, or Q
 """
 
 from typing import Any
+
 from qdrant_client import AsyncQdrantClient, models
+
 from backend.core.config import settings
 from backend.schemas.ingest import RepoIngestItem
 from backend.schemas.search import RepoSearchFilter
@@ -33,7 +35,7 @@ class QdrantService:
             client = self.get_client()
             await client.get_collections()
             return True
-        except Exception:
+        except Exception:  # noqa: BLE001
             return False
 
     async def close(self) -> None:
@@ -75,7 +77,7 @@ class QdrantService:
                         field_name=field_name,
                         field_schema=schema_type,
                     )
-                except Exception:
+                except Exception:  # noqa: BLE001, S110
                     # Some local/in-memory instances warn or skip payload index creation
                     pass
 

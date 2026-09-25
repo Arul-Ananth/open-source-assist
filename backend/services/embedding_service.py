@@ -5,8 +5,10 @@ vector embeddings locally without requiring an external GPU or external API keys
 """
 
 import asyncio
-from typing import Sequence
+from collections.abc import Sequence
+
 from fastembed import TextEmbedding
+
 from backend.core.config import settings
 from backend.schemas.ingest import RepoIngestItem
 
