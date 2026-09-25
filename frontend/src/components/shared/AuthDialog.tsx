@@ -182,7 +182,7 @@ export function AuthDialog({ open, onClose, initialMode = 'login' }: AuthDialogP
     const confirm = String(formData.get('reset-confirm') ?? '')
 
     const next: Record<string, string> = {}
-    if (otp.length < 6) next['reset-otp'] = 'Enter 6-digit verification code.'
+    if (otp.length !== 6 || !/^\d{6}$/.test(otp)) next['reset-otp'] = 'Enter 6-digit verification code.'
     if (password.length < 8) next['reset-password'] = 'Use at least 8 characters.'
     else if (confirm !== password) next['reset-confirm'] = "Passwords don't match."
 
@@ -379,6 +379,30 @@ export function AuthDialog({ open, onClose, initialMode = 'login' }: AuthDialogP
                 autoComplete="one-time-code"
                 error={errors['reset-otp']}
               />
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">Didn't get the code?</span>
+                <button
+                  type="button"
+                  disabled={loading}
+                  onClick={async () => {
+                    if (!pendingEmail) return
+                    setGeneralError(null)
+                    setLoading(true)
+                    try {
+                      await useAuthStore.getState().requestPasswordReset(pendingEmail)
+                      setSuccessMsg(`A fresh reset code was sent to ${pendingEmail}`)
+                    } catch (err: unknown) {
+                      const message = err instanceof Error ? err.message : 'Could not resend code.'
+                      setGeneralError(message)
+                    } finally {
+                      setLoading(false)
+                    }
+                  }}
+                  className="font-medium text-accent-text hover:underline disabled:opacity-50"
+                >
+                  Resend code
+                </button>
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 <Field
                   label="New Password"

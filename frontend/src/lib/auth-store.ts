@@ -138,7 +138,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     const res = await fetch('/api/v1/auth/verify-signup-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, otp }),
+      body: JSON.stringify({ email: email.trim().toLowerCase(), otp: otp.trim() }),
     })
 
     if (!res.ok) {
@@ -150,7 +150,7 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     const user: User = {
       username: username || email.split('@')[0] || 'contributor',
-      email,
+      email: email.trim().toLowerCase(),
       token: access_token,
     }
 
@@ -163,7 +163,7 @@ export const useAuthStore = create<AuthState>((set) => ({
     const res = await fetch('/api/v1/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email: email.trim().toLowerCase() }),
     })
 
     if (!res.ok) {
@@ -178,7 +178,11 @@ export const useAuthStore = create<AuthState>((set) => ({
     const res = await fetch('/api/v1/auth/reset-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, otp, new_password: newPassword }),
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+        otp: otp.trim(),
+        new_password: newPassword,
+      }),
     })
 
     if (!res.ok) {

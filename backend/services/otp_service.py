@@ -58,9 +58,10 @@ class OTPService:
         email: str,
         purpose: OTPPurpose,
         submitted_otp: str,
-    ) -> dict[str, Any] | None:
+    ) -> dict[str, Any]:
         """Verify the OTP against the stored HMAC. If valid, deletes the record and returns payload."""
         normalized_email = email.strip().lower()
+        clean_otp = submitted_otp.strip()
         now = datetime.now(UTC)
 
         record = await db.scalar(
@@ -71,7 +72,7 @@ class OTPService:
         )
 
         if record is None:
-            return None
+            raise ValueError("No pending verification request found for this email. Please request a new code.")
 
         # Check expiration
         expires_at = record.expires_at
@@ -81,10 +82,10 @@ class OTPService:
         if expires_at <= now:
             await db.delete(record)
             await db.commit()
-            return None
+            raise ValueError("Verification code has expired. Please request a new code.")
 
-        if not verify_otp(submitted_otp, record.otp_hash):
-            return None
+        if not verify_otp(clean_otp, record.otp_hash):
+            raise ValueError("Incorrect verification code. Please check your email and try again.")
 
         payload = record.payload or {}
         # Single-use: delete consumed OTP

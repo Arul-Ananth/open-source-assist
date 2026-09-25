@@ -123,7 +123,7 @@ class Settings(BaseSettings):
         description="API key for Google Gemini API services.",
     )
     GEMINI_MODEL: str = Field(
-        default="gemini-3.5-flash",
+        default="gemini-1.5-flash",
         description="Gemini LLM model identifier for AI agents.",
     )
 

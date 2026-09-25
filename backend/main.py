@@ -7,13 +7,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.auth import router as auth_router
+from backend.api.routes.chatbot import router as chatbot_router
+from backend.api.routes.learning import router as learning_router
 from backend.api.routes.search import router as search_router
 from backend.core.config import settings
 from backend.core.database import engine
 from backend.services.qdrant_service import qdrant_service
-from backend.api.routes.search import router as search_router
-from backend.api.routes.learning import router as learning_router
-from backend.api.routes.chatbot import router as chatbot_router
 
 
 @asynccontextmanager
@@ -55,6 +54,7 @@ app.add_middleware(
 )
 
 # Register API routers
+app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
 app.include_router(search_router, prefix=settings.API_V1_PREFIX)
 app.include_router(learning_router, prefix=settings.API_V1_PREFIX)
 app.include_router(chatbot_router, prefix=settings.API_V1_PREFIX)

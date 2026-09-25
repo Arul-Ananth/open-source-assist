@@ -72,8 +72,8 @@ class AuthService:
             submitted_otp=otp,
         )
 
-        if payload is None or "password_hash" not in payload:
-            raise ValueError("Invalid or expired verification code")
+        if "password_hash" not in payload:
+            raise ValueError("Invalid registration data. Please sign up again.")
 
         # Persist newly verified user
         user = User(
@@ -129,16 +129,14 @@ class AuthService:
         normalized_email = email.strip().lower()
         user = await db.scalar(select(User).where(User.email == normalized_email))
         if user is None:
-            raise ValueError("Invalid or expired OTP")
+            raise ValueError("No account found with this email address.")
 
-        payload = await OTPService.verify_and_consume_otp(
+        await OTPService.verify_and_consume_otp(
             db=db,
             email=normalized_email,
             purpose=OTPPurpose.RESET_PASSWORD,
             submitted_otp=otp,
         )
-        if payload is None:
-            raise ValueError("Invalid or expired OTP")
 
         user.password_hash = hash_password(new_password)
         await db.commit()
