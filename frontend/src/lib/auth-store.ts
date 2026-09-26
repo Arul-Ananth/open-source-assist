@@ -65,6 +65,24 @@ function persistSession(user: User | null, token: string | null) {
   }
 }
 
+function extractErrorMessage(data: unknown, fallback: string): string {
+  if (!data) return fallback
+  if (typeof data === 'string') return data
+  if (typeof data === 'object') {
+    const errObj = data as Record<string, unknown>
+    if (typeof errObj.detail === 'string') return errObj.detail
+    if (Array.isArray(errObj.detail) && errObj.detail.length > 0) {
+      return errObj.detail
+        .map((item) =>
+          typeof item === 'object' && item && 'msg' in item ? String(item.msg) : String(item)
+        )
+        .join(', ')
+    }
+    if (typeof errObj.message === 'string') return errObj.message
+  }
+  return fallback
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: loadUser(),
   token: loadToken(),
@@ -73,12 +91,12 @@ export const useAuthStore = create<AuthState>((set) => ({
     const res = await fetch('/api/v1/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
     })
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Login failed' }))
-      throw new Error(err.detail || 'Invalid email or password')
+      const err = await res.json().catch(() => null)
+      throw new Error(extractErrorMessage(err, 'Invalid email or password'))
     }
 
     const { access_token } = await res.json()
@@ -115,20 +133,21 @@ export const useAuthStore = create<AuthState>((set) => ({
     password: string,
     confirmPassword: string
   ) => {
+    const trimmedUsername = username.trim()
     const res = await fetch('/api/v1/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username,
-        email,
+        username: trimmedUsername || undefined,
+        email: email.trim().toLowerCase(),
         password,
         confirm_password: confirmPassword,
       }),
     })
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Signup failed' }))
-      throw new Error(err.detail || 'Could not initiate registration')
+      const err = await res.json().catch(() => null)
+      throw new Error(extractErrorMessage(err, 'Could not initiate registration'))
     }
 
     return await res.json()
@@ -142,14 +161,14 @@ export const useAuthStore = create<AuthState>((set) => ({
     })
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Verification failed' }))
-      throw new Error(err.detail || 'Invalid or expired verification code')
+      const err = await res.json().catch(() => null)
+      throw new Error(extractErrorMessage(err, 'Invalid or expired verification code'))
     }
 
     const { access_token } = await res.json()
 
     const user: User = {
-      username: username || email.split('@')[0] || 'contributor',
+      username: username?.trim() || email.split('@')[0] || 'contributor',
       email: email.trim().toLowerCase(),
       token: access_token,
     }
@@ -167,8 +186,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     })
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Request failed' }))
-      throw new Error(err.detail || 'Could not send reset code')
+      const err = await res.json().catch(() => null)
+      throw new Error(extractErrorMessage(err, 'Could not send reset code'))
     }
 
     return await res.json()
@@ -186,8 +205,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     })
 
     if (!res.ok) {
-      const err = await res.json().catch(() => ({ detail: 'Reset failed' }))
-      throw new Error(err.detail || 'Could not reset password')
+      const err = await res.json().catch(() => null)
+      throw new Error(extractErrorMessage(err, 'Could not reset password'))
     }
 
     return await res.json()

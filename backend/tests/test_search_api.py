@@ -210,3 +210,23 @@ async def test_ingest_and_search_flow() -> None:
         stars_data = stars_resp.json()
         assert len(stars_data["items"]) == 1
         assert stars_data["items"][0]["full_name"] == "tiangolo/fastapi"
+
+
+@pytest.mark.asyncio
+async def test_search_handles_qdrant_failure_gracefully(monkeypatch: pytest.MonkeyPatch) -> None:
+    """When Qdrant is offline or throws an exception, search returns 200 with empty items without crashing."""
+    async def mock_failing_search(*args, **kwargs):
+        raise RuntimeError("Qdrant cluster unreachable")
+
+    monkeypatch.setattr(qdrant_service, "search_candidates", mock_failing_search)
+
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            "/api/v1/search",
+            json={"query": "machine learning framework", "limit": 10},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 0
+        assert data["items"] == []

@@ -1,6 +1,8 @@
 """Pydantic schemas for authentication and password recovery workflows."""
 
-from pydantic import BaseModel, EmailStr, Field, model_validator
+from typing import Any
+
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 class SignupRequest(BaseModel):
@@ -14,6 +16,16 @@ class SignupRequest(BaseModel):
     confirm_password: str = Field(
         min_length=8, max_length=128, description="Password confirmation."
     )
+
+    @field_validator("username", mode="before")
+    @classmethod
+    def sanitize_username(cls, v: Any) -> str | None:
+        if v is None:
+            return None
+        if isinstance(v, str):
+            v_clean = v.strip()
+            return v_clean if v_clean else None
+        return v
 
     @model_validator(mode="after")
     def verify_passwords_match(self) -> "SignupRequest":

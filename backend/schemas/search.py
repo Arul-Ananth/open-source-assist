@@ -33,8 +33,8 @@ class RepoSearchRequest(BaseModel):
     """Request payload for semantic open-source repository search."""
 
     query: str = Field(
-        ...,
-        min_length=1,
+        default="",
+        min_length=0,
         max_length=500,
         description="Natural language query describing desired repository capabilities, domain, or technologies.",
         examples=["lightweight async web framework for microservices"],
@@ -45,6 +45,11 @@ class RepoSearchRequest(BaseModel):
         le=1.0,
         description="Relative importance given to popularity (0.0 = pure semantic match, 1.0 = popularity heavily amplified).",
         examples=[0.3],
+    )
+    strategy: str | None = Field(
+        default=None,
+        description="Scoring strategy name ('linear_hybrid' or 'multiplicative_gate'). Defaults to multiplicative_gate.",
+        examples=["linear_hybrid"],
     )
     filters: RepoSearchFilter | None = Field(
         default=None,

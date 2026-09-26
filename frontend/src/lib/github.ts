@@ -133,18 +133,62 @@ export interface SearchResponse {
   items: Repo[]
 }
 
+export interface BackendSearchFilters {
+  language?: string | null
+  min_stars?: number | null
+  license?: string | null
+  topic?: string | null
+}
+
+export interface BackendSearchOptions {
+  query: string
+  popularityWeight?: number
+  strategy?: 'linear_hybrid' | 'multiplicative_gate'
+  filters?: BackendSearchFilters
+  limit?: number
+  offset?: number
+  signal?: AbortSignal
+}
+
 /**
- * Query the backend semantic search endpoint (/api/v1/search).
+ * Query the backend semantic search endpoint (/api/v1/search) with full request schema parameters.
  */
 export async function searchBackendProjects(
-  query = 'open source machine learning web tools',
-  signal?: AbortSignal,
+  optionsOrQuery: string | BackendSearchOptions = 'open source developer tools',
+  legacySignal?: AbortSignal,
 ): Promise<SearchResponse> {
+  const options: BackendSearchOptions =
+    typeof optionsOrQuery === 'string'
+      ? { query: optionsOrQuery, signal: legacySignal }
+      : optionsOrQuery
+
+  const payload: Record<string, unknown> = {
+    query: options.query !== undefined ? options.query : 'open source developer tools',
+    popularity_weight: options.popularityWeight ?? 0.3,
+    strategy: options.strategy ?? 'linear_hybrid',
+    limit: options.limit ?? 9,
+    offset: options.offset ?? 0,
+  }
+
+  if (options.filters) {
+    const f: Record<string, unknown> = {}
+    if (options.filters.language?.trim()) f.language = options.filters.language.trim()
+    if (typeof options.filters.min_stars === 'number' && options.filters.min_stars > 0) {
+      f.min_stars = options.filters.min_stars
+    }
+    if (options.filters.license?.trim()) f.license = options.filters.license.trim()
+    if (options.filters.topic?.trim()) f.topic = options.filters.topic.trim()
+
+    if (Object.keys(f).length > 0) {
+      payload.filters = f
+    }
+  }
+
   const res = await fetch('/api/v1/search', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, limit: 3 }),
-    signal,
+    body: JSON.stringify(payload),
+    signal: options.signal,
   })
 
   if (!res.ok) {

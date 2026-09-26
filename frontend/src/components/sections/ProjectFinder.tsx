@@ -81,6 +81,13 @@ export function ProjectFinder() {
         </button>
       </div>
 
+      {contributorsQuery.isError && contributorsQuery.error instanceof RateLimitError && (
+        <div className="mt-4 flex items-center gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-3.5 py-2 text-xs text-amber-300 animate-fade-in">
+          <TriangleAlert className="size-3.5 shrink-0 text-amber-400" />
+          <span>GitHub API contributor rate limit reached. Displaying repository owner profiles instead.</span>
+        </div>
+      )}
+
       {isPending ? (
         <div className="mt-8 grid grid-cols-1 gap-5 md:grid-cols-3">
           {Array.from({ length: 3 }).map((_, i) => (

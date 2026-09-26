@@ -1,5 +1,4 @@
-"""HTTP endpoints for authentication, registration verification, and password recovery."""
-
+import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -19,6 +18,8 @@ from backend.schemas.auth import (
     VerifySignupOTPRequest,
 )
 from backend.services.auth_service import AuthService
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -42,6 +43,12 @@ async def signup(
         )
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.error("Signup dispatch failed unexpectedly: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to send verification code. Please check your network and try again.",
+        ) from exc
     return MessageResponse(message="Verification code sent to your email")
 
 
@@ -57,6 +64,12 @@ async def verify_signup_otp(
         token = await AuthService.verify_signup_otp(db, payload.email, payload.otp)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    except Exception as exc:
+        logger.error("Signup verification failed unexpectedly: %s", exc, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Verification could not be processed. Please try again.",
+        ) from exc
     return AuthResponse(
         access_token=token,
         message="User registered and verified successfully",

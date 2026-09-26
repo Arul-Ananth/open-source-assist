@@ -268,3 +268,36 @@ async def test_auth_dependencies(auth_session) -> None:
         # 3. Call protected /me endpoint with no authorization header -> 401
         res_none = await client.get("/api/v1/auth/me")
         assert res_none.status_code == 401
+
+
+@pytest.mark.asyncio
+async def test_signup_empty_or_whitespace_username(auth_session) -> None:
+    """Empty or whitespace username in signup payload should sanitize to None and succeed."""
+    _session, signup_otps, _ = auth_session
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        res = await client.post(
+            "/api/v1/auth/signup",
+            json={
+                "username": "   ",
+                "email": "blank_user@example.com",
+                "password": "valid-password-789",
+                "confirm_password": "valid-password-789",
+            },
+        )
+        assert res.status_code == 200
+        assert len(signup_otps) == 1
+
+        verify_res = await client.post(
+            "/api/v1/auth/verify-signup-otp",
+            json={"email": "blank_user@example.com", "otp": signup_otps[0]},
+        )
+        assert verify_res.status_code == 201
+        token = verify_res.json()["access_token"]
+
+        res_me = await client.get(
+            "/api/v1/auth/me",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert res_me.status_code == 200
+        assert res_me.json()["username"] is None

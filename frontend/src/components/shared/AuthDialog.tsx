@@ -77,9 +77,27 @@ export function AuthDialog({ open, onClose, initialMode = 'login' }: AuthDialogP
   const validate = (formData: FormData): boolean => {
     const next: Record<string, string> = {}
 
+    const email = String(formData.get(`${screen}-email`) ?? '').trim()
+    if (!email) {
+      next[`${screen}-email`] = 'Email is required.'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      next[`${screen}-email`] = 'Please enter a valid email address.'
+    }
+
+    if (isLogin) {
+      const password = String(formData.get('login-password') ?? '')
+      if (!password) {
+        next['login-password'] = 'Password is required.'
+      }
+    }
+
     if (isSignup) {
       const username = String(formData.get('signup-username') ?? '').trim()
-      if (username.length < 3) next['signup-username'] = 'At least 3 characters.'
+      if (!username) {
+        next['signup-username'] = 'Username is required.'
+      } else if (username.length < 3) {
+        next['signup-username'] = 'At least 3 characters.'
+      }
 
       const password = String(formData.get('signup-password') ?? '')
       const confirm = String(formData.get('signup-confirm') ?? '')
@@ -133,8 +151,8 @@ export function AuthDialog({ open, onClose, initialMode = 'login' }: AuthDialogP
     const formData = new FormData(e.currentTarget)
     const otp = String(formData.get('signup-otp') ?? '').trim()
 
-    if (otp.length < 6) {
-      setErrors({ 'signup-otp': 'Please enter the 6-digit verification code.' })
+    if (!/^\d{6}$/.test(otp)) {
+      setErrors({ 'signup-otp': 'Please enter a valid 6-digit verification code.' })
       return
     }
 
@@ -157,6 +175,10 @@ export function AuthDialog({ open, onClose, initialMode = 'login' }: AuthDialogP
 
     if (!email) {
       setErrors({ 'forgot-email': 'Please enter your email.' })
+      return
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setErrors({ 'forgot-email': 'Please enter a valid email address.' })
       return
     }
 
@@ -497,10 +519,19 @@ export function AuthDialog({ open, onClose, initialMode = 'login' }: AuthDialogP
 
               {isLogin && (
                 <div className="flex items-center justify-between">
-                  <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
-                    <input type="checkbox" className="size-3.5 rounded accent-accent" />
-                    Remember me
-                  </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const emailInput = document.getElementById('login-email') as HTMLInputElement | null
+                      const passwordInput = document.getElementById('login-password') as HTMLInputElement | null
+                      if (emailInput) emailInput.value = 'demo@opensourceassist.dev'
+                      if (passwordInput) passwordInput.value = 'Password123!'
+                    }}
+                    className="text-[11px] font-mono font-medium text-muted-foreground hover:text-accent-text transition-colors"
+                    title="Fill pre-verified demo credentials"
+                  >
+                    ⚡ Fill Demo Login
+                  </button>
                   <button
                     type="button"
                     onClick={() => switchTo('forgot')}

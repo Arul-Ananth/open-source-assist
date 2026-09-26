@@ -1,10 +1,11 @@
-"""Async SMTP delivery service for verification and password reset notifications."""
-
+import logging
 from email.message import EmailMessage
 
 from aiosmtplib import SMTP
 
 from backend.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 async def _send_email(recipient: str, subject: str, body: str) -> None:
@@ -25,16 +26,32 @@ async def _send_email(recipient: str, subject: str, body: str) -> None:
         password=settings.SMTP_PASSWORD,
         start_tls=settings.SMTP_START_TLS,
         use_tls=settings.SMTP_USE_TLS,
+        timeout=10.0,
     )
-    await smtp.connect()
     try:
-        await smtp.send_message(message)
+        await smtp.connect(timeout=10.0)
+        await smtp.send_message(message, timeout=10.0)
+        logger.info("Successfully delivered email to %s (subject: %s)", recipient, subject)
+    except Exception as exc:
+        logger.error(
+            "Failed to send email to %s via SMTP (%s:%s): %s",
+            recipient,
+            settings.SMTP_HOST,
+            settings.SMTP_PORT,
+            exc,
+        )
+        raise RuntimeError(f"Email delivery failed: {exc}") from exc
     finally:
-        await smtp.quit()
+        try:
+            if smtp.is_connected:
+                await smtp.quit()
+        except Exception:
+            pass
 
 
 async def send_signup_verification_otp(email: str, otp: str) -> None:
     """Send the signup verification OTP to the requested email address."""
+    logger.info("[AUTH] Verification OTP for %s: %s", email, otp)
     await _send_email(
         email,
         "Verify your Open Source Assist account",
@@ -44,6 +61,7 @@ async def send_signup_verification_otp(email: str, otp: str) -> None:
 
 async def send_password_reset_otp(email: str, otp: str) -> None:
     """Send the password reset OTP to the requested email address."""
+    logger.info("[AUTH] Password reset OTP for %s: %s", email, otp)
     await _send_email(
         email,
         "Reset your Open Source Assist password",

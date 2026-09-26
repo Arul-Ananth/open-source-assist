@@ -1,7 +1,12 @@
 """Search service orchestrating vector retrieval, popularity scoring, and ranking."""
 
+import logging
 import math
 import time
+
+from typing import Any
+
+logger = logging.getLogger(__name__)
 
 from backend.core.config import settings
 from backend.schemas.ingest import (
@@ -11,14 +16,17 @@ from backend.schemas.ingest import (
 from backend.schemas.search import (
     RepoItem,
     RepoScoreBreakdown,
+    RepoSearchFilter,
     RepoSearchRequest,
     RepoSearchResponse,
 )
 from backend.services.embedding_service import EmbeddingService, embedding_service
 from backend.services.qdrant_service import QdrantService, qdrant_service
 from backend.services.scoring_strategy import (
+    LinearHybridStrategy,
     MultiplicativeGateStrategy,
     ScoringStrategy,
+    get_scoring_strategy,
 )
 
 
@@ -73,21 +81,39 @@ class SearchService:
             RepoSearchResponse containing sorted repository results and metadata.
         """
         start_time = time.perf_counter()
+        query_text = (request.query or "").strip()
 
-        # Step 1: Embed search query
-        query_vector = await self.embedder.embed_query(request.query)
-
-        # Step 2: Retrieve semantic candidates from Qdrant HNSW index
-        # We fetch enough candidates to cover pagination offset + limit
         candidate_limit = max(
             settings.CANDIDATE_SEARCH_LIMIT,
             request.offset + request.limit + 20,
         )
-        points = await self.qdrant.search_candidates(
-            query_vector=query_vector,
-            limit=candidate_limit,
-            filters=request.filters,
-        )
+
+        points: list[Any] = []
+        try:
+            if not query_text:
+                # Empty query browse mode: retrieve candidates matching filters
+                points = await self.qdrant.get_all_candidates(
+                    limit=candidate_limit,
+                    filters=request.filters,
+                )
+            else:
+                # Semantic vector search mode
+                query_vector = await self.embedder.embed_query(query_text)
+                points = await self.qdrant.search_candidates(
+                    query_vector=query_vector,
+                    limit=candidate_limit,
+                    filters=request.filters,
+                )
+        except Exception as exc:
+            logger.warning("Qdrant search unavailable or offline: %s", exc)
+            points = []
+
+        if request.strategy:
+            strategy_instance = get_scoring_strategy(request.strategy)
+        elif request.popularity_weight >= 0.7:
+            strategy_instance = LinearHybridStrategy()
+        else:
+            strategy_instance = self.strategy
 
         # Step 3: Compute popularity score and apply scoring strategy
         scored_items: list[RepoItem] = []
@@ -99,7 +125,7 @@ class SearchService:
             semantic_score = round(float(point.score), 4)
             popularity_score = self.normalize_popularity(stars, forks)
             final_score = round(
-                self.strategy.calculate_score(
+                strategy_instance.calculate_score(
                     semantic_score=semantic_score,
                     popularity_score=popularity_score,
                     popularity_weight=request.popularity_weight,
@@ -123,13 +149,16 @@ class SearchService:
                     semantic_score=semantic_score,
                     popularity_score=popularity_score,
                     final_score=final_score,
-                    strategy=self.strategy.name,
+                    strategy=strategy_instance.name,
                 ),
             )
             scored_items.append(item)
 
-        # Step 4: Re-rank candidates by final_score descending
-        scored_items.sort(key=lambda item: item.scores.final_score, reverse=True)
+        # Step 4: Re-rank candidates by final_score descending, tie-breaking by stars and forks
+        scored_items.sort(
+            key=lambda item: (item.scores.final_score, item.stars, item.forks),
+            reverse=True,
+        )
 
         # Step 5: Paginate results
         paginated_items = scored_items[request.offset : request.offset + request.limit]
@@ -141,7 +170,7 @@ class SearchService:
             limit=request.limit,
             offset=request.offset,
             items=paginated_items,
-            strategy=self.strategy.name,
+            strategy=strategy_instance.name,
             duration_ms=duration_ms,
         )
 
