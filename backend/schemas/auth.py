@@ -1,8 +1,12 @@
 """Pydantic schemas for authentication and password recovery workflows."""
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+
+
+UserRole = Literal["user", "admin"]
+AccountStatus = Literal["active", "suspended", "banned"]
 
 
 class SignupRequest(BaseModel):
@@ -38,12 +42,7 @@ class VerifySignupOTPRequest(BaseModel):
     """Payload to verify registration OTP and finalize account creation."""
 
     email: EmailStr = Field(description="Account email address.")
-    otp: str = Field(
-        min_length=6,
-        max_length=6,
-        pattern=r"^\d{6}$",
-        description="Six-digit registration verification code.",
-    )
+    otp: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
 
 
 class LoginRequest(BaseModel):
@@ -63,43 +62,36 @@ class ResetPasswordRequest(BaseModel):
     """Payload to verify reset OTP and replace account password."""
 
     email: EmailStr = Field(description="Account email address.")
-    otp: str = Field(
-        min_length=6,
-        max_length=6,
-        pattern=r"^\d{6}$",
-        description="Six-digit reset code.",
-    )
-    new_password: str = Field(
-        min_length=8, max_length=128, description="Replacement account password."
-    )
+    otp: str = Field(min_length=6, max_length=6, pattern=r"^\d{6}$")
+    new_password: str = Field(min_length=8, max_length=128)
 
 
 class TokenResponse(BaseModel):
     """Response payload containing JWT access token."""
 
-    access_token: str = Field(description="Signed JWT access token.")
-    token_type: str = Field(default="bearer", description="Bearer authentication scheme.")
+    access_token: str
+    token_type: str = "bearer"
 
 
 class AuthResponse(BaseModel):
-    """Response payload returned upon registration verification and login."""
+    """Response payload returned upon registration verification."""
 
-    access_token: str = Field(description="Signed JWT access token.")
-    token_type: str = Field(default="bearer", description="Bearer authentication scheme.")
-    message: str = Field(description="Status confirmation message.")
+    access_token: str
+    token_type: str = "bearer"
+    message: str
 
 
 class MessageResponse(BaseModel):
     """Generic message response."""
 
-    message: str = Field(description="Operation result message.")
+    message: str
 
 
 class UserProfileResponse(BaseModel):
-    """User profile data returned by /me endpoint."""
+    """Profile data for the authenticated user."""
 
-    id: str = Field(description="User unique identifier UUID.")
-    email: EmailStr = Field(description="User account email address.")
-    username: str | None = Field(default=None, description="Account display username.")
-
-
+    id: str
+    email: EmailStr
+    username: str | None = None
+    role: UserRole = "user"
+    account_status: AccountStatus = "active"
