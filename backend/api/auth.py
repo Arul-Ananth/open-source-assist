@@ -1,3 +1,5 @@
+"""Authentication and account lifecycle routes."""
+
 import logging
 from typing import Annotated, Any
 
@@ -20,68 +22,40 @@ from backend.schemas.auth import (
 from backend.services.auth_service import AuthService
 
 logger = logging.getLogger(__name__)
-
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@router.post("/signup", response_model=MessageResponse, status_code=status.HTTP_200_OK)
-async def signup(
-    payload: SignupRequest,
-    db: Annotated[AsyncSession, Depends(get_db)],
-) -> MessageResponse:
-    """Initiate registration by validating payload and dispatching an email verification OTP.
-    
-    The user is not persisted to the database until OTP verification is completed.
-    """
+@router.post("/signup", response_model=MessageResponse)
+async def signup(payload: SignupRequest, db: Annotated[AsyncSession, Depends(get_db)]) -> MessageResponse:
     try:
         await AuthService.request_signup(
-            db,
-            payload.email,
-            payload.password,
-            payload.confirm_password,
-            payload.username,
+            db, payload.email, payload.password, payload.confirm_password, payload.username
         )
     except (ValueError, RuntimeError) as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except Exception as exc:
         logger.error("Signup dispatch failed unexpectedly: %s", exc, exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to send verification code. Please check your network and try again.",
-        ) from exc
+        raise HTTPException(status_code=500, detail="Failed to send verification code") from exc
     return MessageResponse(message="Verification code sent to your email")
 
 
-@router.post(
-    "/verify-signup-otp", response_model=AuthResponse, status_code=status.HTTP_201_CREATED
-)
+@router.post("/verify-signup-otp", response_model=AuthResponse, status_code=status.HTTP_201_CREATED)
 async def verify_signup_otp(
     payload: VerifySignupOTPRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> AuthResponse:
-    """Verify signup OTP, persist user into the database, and issue access token."""
     try:
         token = await AuthService.verify_signup_otp(db, payload.email, payload.otp)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
     except Exception as exc:
         logger.error("Signup verification failed unexpectedly: %s", exc, exc_info=True)
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Verification could not be processed. Please try again.",
-        ) from exc
-    return AuthResponse(
-        access_token=token,
-        message="User registered and verified successfully",
-    )
+        raise HTTPException(status_code=500, detail="Verification could not be processed") from exc
+    return AuthResponse(access_token=token, message="User registered and verified successfully")
 
 
-@router.post("/login", response_model=TokenResponse, status_code=status.HTTP_200_OK)
-async def login(
-    payload: LoginRequest,
-    db: Annotated[AsyncSession, Depends(get_db)],
-) -> TokenResponse:
-    """Verify user credentials and return signed access token."""
+@router.post("/login", response_model=TokenResponse)
+async def login(payload: LoginRequest, db: Annotated[AsyncSession, Depends(get_db)]) -> TokenResponse:
     try:
         token = await AuthService.login(db, payload.email, payload.password)
     except ValueError as exc:
@@ -89,22 +63,20 @@ async def login(
     return TokenResponse(access_token=token)
 
 
-@router.post("/forgot-password", response_model=MessageResponse, status_code=status.HTTP_200_OK)
+@router.post("/forgot-password", response_model=MessageResponse)
 async def forgot_password(
     payload: ForgotPasswordRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> MessageResponse:
-    """Issue a password-reset OTP without leaking account existence."""
     await AuthService.request_password_reset(db, payload.email)
     return MessageResponse(message="If the account exists, a reset code has been sent")
 
 
-@router.post("/reset-password", response_model=MessageResponse, status_code=status.HTTP_200_OK)
+@router.post("/reset-password", response_model=MessageResponse)
 async def reset_password(
     payload: ResetPasswordRequest,
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> MessageResponse:
-    """Verify a single-use OTP and replace the account password."""
     try:
         await AuthService.reset_password(db, payload.email, payload.otp, payload.new_password)
     except ValueError as exc:
@@ -112,13 +84,14 @@ async def reset_password(
     return MessageResponse(message="Password reset successfully")
 
 
-@router.get("/me", response_model=UserProfileResponse, status_code=status.HTTP_200_OK)
+@router.get("/me", response_model=UserProfileResponse)
 async def get_me(
     current_user: Annotated[dict[str, Any], Depends(get_current_user)],
 ) -> UserProfileResponse:
-    """Return profile details for the currently authenticated user."""
     return UserProfileResponse(
         id=current_user["user_id"],
         email=current_user["email"],
         username=current_user.get("username"),
+        role=current_user.get("role", "user"),
+        account_status=current_user.get("account_status", "active"),
     )

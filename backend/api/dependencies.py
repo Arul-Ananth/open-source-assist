@@ -14,17 +14,14 @@ from backend.models.user_model import User
 from backend.services.qdrant_service import QdrantService, qdrant_service
 from backend.services.search_service import SearchService, search_service
 
-# Enables Swagger UI "Authorize" dialog while keeping token submission optional for guest routes
 bearer_security = HTTPBearer(auto_error=False)
 
 
 def get_search_service() -> SearchService:
-    """Provide the SearchService singleton instance."""
     return search_service
 
 
 def get_qdrant_service() -> QdrantService:
-    """Provide the QdrantService singleton instance."""
     return qdrant_service
 
 
@@ -32,12 +29,10 @@ async def get_optional_current_user(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_security)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any] | None:
-    """Decode an optional bearer token and verify user state without blocking guest access."""
     if credentials is None:
         return None
 
-    token = credentials.credentials
-    payload = decode_access_token(token)
+    payload = decode_access_token(credentials.credentials)
     if not payload or not payload.get("sub"):
         return None
 
@@ -54,18 +49,37 @@ async def get_optional_current_user(
         "user_id": str(user.id),
         "email": user.email,
         "username": user.username,
-        "token": token,
+        "role": user.role,
+        "account_status": user.account_status,
+        "token": credentials.credentials,
     }
 
 
 async def get_current_user(
     user: Annotated[dict[str, Any] | None, Depends(get_optional_current_user)],
 ) -> dict[str, Any]:
-    """Require valid bearer token and active user account."""
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials or user inactive",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
+
+async def get_current_admin(
+    user: Annotated[dict[str, Any] | None, Depends(get_optional_current_user)],
+) -> dict[str, Any]:
+    """Require an authenticated user whose persisted role is administrator."""
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials or user inactive",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator role required",
         )
     return user
