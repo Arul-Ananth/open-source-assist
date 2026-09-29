@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 from backend.core.config import settings
 from backend.core.database import Base
-from backend.models import OTP, User  # noqa: F401 (register metadata)
+from backend.models import Event, ForumBan, ForumPost, ForumThread, OTP, User  # noqa: F401 (register metadata)
 
 config = context.config
 config.set_main_option("sqlalchemy.url", settings.DATABASE_URL.replace("%", "%%"))

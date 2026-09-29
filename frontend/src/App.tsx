@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { DashboardPage, HomePage } from '@/page'
+import { AdminPage, DashboardPage, HomePage } from '@/page'
 import { useAuthStore } from '@/lib/auth-store'
 
 export default function App() {
@@ -21,24 +21,33 @@ export default function App() {
       }),
   )
   const user = useAuthStore((s) => s.user)
+  const [sessionChecked, setSessionChecked] = useState(false)
+
+  useEffect(() => {
+    void useAuthStore.getState().refreshCurrentUser().finally(() => setSessionChecked(true))
+  }, [])
 
   const handleLogout = () => {
     useAuthStore.getState().logout()
     window.scrollTo({ top: 0 })
+    if (window.location.pathname.startsWith('/admin')) window.location.assign('/')
   }
 
-  // Signed-in users land on the dashboard instead of the marketing page.
-  if (user) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <DashboardPage onLogout={handleLogout} />
-      </QueryClientProvider>
-    )
-  }
+  const isAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')
 
   return (
     <QueryClientProvider client={queryClient}>
-      <HomePage />
+      {!sessionChecked ? (
+        <main className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted-foreground">
+          Loading session…
+        </main>
+      ) : isAdminRoute ? (
+        <AdminPage onLogout={handleLogout} />
+      ) : user ? (
+        <DashboardPage onLogout={handleLogout} />
+      ) : (
+        <HomePage />
+      )}
     </QueryClientProvider>
   )
 }

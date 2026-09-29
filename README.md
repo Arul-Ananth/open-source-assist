@@ -80,3 +80,13 @@ uv run uvicorn backend.main:app --reload
 
 Reset codes expire after five minutes, are persisted as HMAC digests, and are single-use. Email delivery is currently represented by the mock mailer in `backend/scripts/mailer.py`.
 
+## Administrator access
+
+Apply all migrations with `uv run alembic upgrade head`. New accounts receive `role='user'` and `account_status='active'`. To bootstrap the first administrator, update the account directly in PostgreSQL:
+
+```sql
+UPDATE users SET role = 'admin' WHERE email = 'admin@example.com';
+```
+
+Then sign in and open `/admin`. Administrator API access is checked against the persisted user role. Account suspension or banning disables authentication; forum-only bans are stored separately and do not deactivate an account. See [API_CONTRACT.md](API_CONTRACT.md) for the administrator, event, and forum endpoints.
+

@@ -8,6 +8,7 @@ import {
   Menu,
   MessagesSquare,
   Search,
+  Shield,
   Users,
   Compass,
   Gift,
@@ -26,6 +27,7 @@ import { useAuthStore } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 import { RoadmapPage } from '@/components/roadmap/RoadmapPage'
 import { EventsSection, ExploreSection, RedeemSection } from '@/components/dashboard'
+import { ForumSection } from '@/components/dashboard/ForumSection'
 import { LearningSection } from '@/components/learning'
 
 interface DashboardPageProps {
@@ -284,6 +286,15 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
             </button>
           )
         })}
+        {user?.role === 'admin' && (
+          <a
+            href="/admin"
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-surface hover:text-foreground"
+          >
+            <Shield className="size-4 shrink-0" aria-hidden="true" />
+            Administration
+          </a>
+        )}
       </nav>
 
       {/* Footer: logout */}
@@ -358,6 +369,8 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
             <ExploreSection />
           ) : section === 'events' ? (
             <EventsSection />
+          ) : section === 'forum' ? (
+            <ForumSection />
           ) : section === 'redeem' ? (
             <RedeemSection />
           ) : (

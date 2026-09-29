@@ -28,6 +28,43 @@ This document tracks all FastAPI endpoint contracts, request payloads, and respo
     "offset": 0
   }
   ```
+
+---
+
+## [v0.4.0] - 2026-09-29: Administrator, Event, and Forum APIs
+
+### User role and account status
+
+The `users` table has `role` (`user` or `admin`) and `account_status` (`active`, `suspended`, or `banned`). Existing rows migrate as ordinary active users. New signups explicitly receive `role='user'`, `account_status='active'`, and `is_active=true`. The compatibility `is_active` flag stays synchronized with account status and remains part of authentication checks. Forum-only bans are stored separately and do not deactivate accounts.
+
+`GET /api/v1/auth/me` now also returns `role` and `account_status`.
+
+### Public events
+
+* `GET /api/v1/events` returns persisted events ordered by date and time. Event creation and mutation are restricted to administrator endpoints.
+
+### Public forum
+
+* `GET /api/v1/forum/threads?limit=50` returns recent thread summaries and reply counts.
+* `GET /api/v1/forum/threads/{thread_id}` returns a thread with its opening post and replies.
+* `POST /api/v1/forum/threads` requires a bearer token and accepts `{ "title": "...", "content": "..." }`.
+* `POST /api/v1/forum/threads/{thread_id}/replies` requires a bearer token and accepts `{ "content": "..." }`.
+* Forum-banned users receive `403 Forbidden` when attempting to post.
+
+### Administrator endpoints
+
+All routes below require `Authorization: Bearer <token>` for a user whose persisted role is `admin`; unauthenticated callers receive `401`, and ordinary users receive `403`.
+
+* `GET /api/v1/admin/users?search=&limit=50&offset=0` lists and searches accounts.
+* `PATCH /api/v1/admin/users/{user_id}` accepts optional `role` and/or `account_status` fields. Administrators cannot modify their own account; the last administrator cannot be removed.
+* `DELETE /api/v1/admin/users/{user_id}` deletes an account, but not the signed-in administrator or the last administrator.
+* `GET /api/v1/admin/events` lists persisted events.
+* `POST /api/v1/admin/events` creates an event; `PATCH /api/v1/admin/events/{event_id}` updates it; `DELETE /api/v1/admin/events/{event_id}` removes it.
+* `DELETE /api/v1/admin/events/ended` removes ended events and returns `{ "deleted": 0 }` with the actual deletion count.
+* `GET /api/v1/admin/forum/threads` lists threads, replies, and forum-ban indicators; `DELETE /api/v1/admin/forum/threads/{thread_id}` removes a thread and its replies.
+* `GET /api/v1/admin/forum/bans` lists forum-only bans; `POST /api/v1/admin/forum/bans/{user_id}` creates one; `DELETE /api/v1/admin/forum/bans/{user_id}` removes one.
+
+Assign the first administrator manually in the database after signup. Do not expose role assignment through public signup.
 * **Response Body** (`RepoSearchResponse`):
   ```json
   {

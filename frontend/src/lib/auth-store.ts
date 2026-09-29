@@ -1,10 +1,15 @@
 import { create } from 'zustand'
 
+export type UserRole = 'user' | 'admin'
+export type AccountStatus = 'active' | 'suspended' | 'banned'
+
 export interface User {
   id?: string
   username: string
   email: string
   token?: string
+  role: UserRole
+  accountStatus: AccountStatus
 }
 
 interface AuthState {
@@ -21,6 +26,7 @@ interface AuthState {
   verifySignupOtp: (email: string, otp: string, username?: string) => Promise<User>
   requestPasswordReset: (email: string) => Promise<{ message: string }>
   resetPassword: (email: string, otp: string, newPassword: string) => Promise<{ message: string }>
+  refreshCurrentUser: () => Promise<User | null>
   logout: () => void
 }
 
@@ -35,6 +41,11 @@ function loadUser(): User | null {
         username: parsed.username,
         email: parsed.email,
         token: parsed.token,
+        role: parsed.role === 'admin' ? 'admin' : 'user',
+        accountStatus:
+          parsed.accountStatus === 'suspended' || parsed.accountStatus === 'banned'
+            ? parsed.accountStatus
+            : 'active',
       }
     }
   } catch {
@@ -83,7 +94,38 @@ function extractErrorMessage(data: unknown, fallback: string): string {
   return fallback
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+class ProfileRequestError extends Error {
+  constructor(public readonly status: number, message: string) {
+    super(message)
+  }
+}
+
+async function fetchProfile(token: string, fallbackEmail: string, fallbackUsername: string): Promise<User> {
+  const response = await fetch('/api/v1/auth/me', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (!response.ok) {
+    const error = await response.json().catch(() => null)
+    throw new ProfileRequestError(
+      response.status,
+      extractErrorMessage(error, 'Could not load the user profile'),
+    )
+  }
+  const profile = await response.json()
+  return {
+    id: profile.id,
+    username: profile.username || fallbackUsername,
+    email: profile.email || fallbackEmail,
+    token,
+    role: profile.role === 'admin' ? 'admin' : 'user',
+    accountStatus:
+      profile.account_status === 'suspended' || profile.account_status === 'banned'
+        ? profile.account_status
+        : 'active',
+  }
+}
+
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: loadUser(),
   token: loadToken(),
 
@@ -101,26 +143,11 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     const { access_token } = await res.json()
 
-    // Fetch user profile
-    const meRes = await fetch('/api/v1/auth/me', {
-      headers: { Authorization: `Bearer ${access_token}` },
-    })
-
-    let user: User = {
-      username: email.split('@')[0] || 'contributor',
-      email,
-      token: access_token,
-    }
-
-    if (meRes.ok) {
-      const profile = await meRes.json()
-      user = {
-        id: profile.id,
-        username: profile.username || user.username,
-        email: profile.email || email,
-        token: access_token,
-      }
-    }
+    const user = await fetchProfile(
+      access_token,
+      email.trim().toLowerCase(),
+      email.split('@')[0] || 'contributor',
+    )
 
     persistSession(user, access_token)
     set({ user, token: access_token })
@@ -167,11 +194,12 @@ export const useAuthStore = create<AuthState>((set) => ({
 
     const { access_token } = await res.json()
 
-    const user: User = {
-      username: username?.trim() || email.split('@')[0] || 'contributor',
-      email: email.trim().toLowerCase(),
-      token: access_token,
-    }
+    const normalizedEmail = email.trim().toLowerCase()
+    const user = await fetchProfile(
+      access_token,
+      normalizedEmail,
+      username?.trim() || normalizedEmail.split('@')[0] || 'contributor',
+    )
 
     persistSession(user, access_token)
     set({ user, token: access_token })
@@ -210,6 +238,29 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
 
     return await res.json()
+  },
+
+  refreshCurrentUser: async () => {
+    const token = get().token
+    const existingUser = get().user
+    if (!token) return existingUser
+    try {
+      const user = await fetchProfile(
+        token,
+        existingUser?.email ?? 'contributor@example.com',
+        existingUser?.username ?? 'contributor',
+      )
+      persistSession(user, token)
+      set({ user, token })
+      return user
+    } catch (error) {
+      if (error instanceof ProfileRequestError && (error.status === 401 || error.status === 403)) {
+        persistSession(null, null)
+        set({ user: null, token: null })
+        return null
+      }
+      return existingUser
+    }
   },
 
   logout: () => {

@@ -81,6 +81,8 @@ class AuthService:
             email=normalized_email,
             username=payload.get("username"),
             password_hash=payload["password_hash"],
+            role="user",
+            account_status="active",
             is_active=True,
         )
         db.add(user)
@@ -102,7 +104,7 @@ class AuthService:
         if user is None or not verify_password(password, user.password_hash):
             raise ValueError("Invalid email or password")
 
-        if not user.is_active:
+        if not user.is_active or user.account_status != "active":
             raise ValueError("Account is deactivated")
 
         return create_access_token(str(user.id))

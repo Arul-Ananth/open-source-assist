@@ -106,6 +106,8 @@ async def test_signup_otp_verification_and_login_flow(auth_session) -> None:
         )
         assert created_user is not None
         assert created_user.is_active is True
+        assert created_user.role == "user"
+        assert created_user.account_status == "active"
         assert str(created_user.id)  # Valid UUID string
 
         # OTP row has been consumed and deleted from ephemeral store
@@ -256,6 +258,8 @@ async def test_auth_dependencies(auth_session) -> None:
         profile = res_me.json()
         assert profile["email"] == "dep_test@example.com"
         assert profile["username"] == "testcontributor"
+        assert profile["role"] == "user"
+        assert profile["account_status"] == "active"
         assert profile["id"]  # valid UUID
 
         # 2. Call protected /me endpoint with invalid bearer token -> 401

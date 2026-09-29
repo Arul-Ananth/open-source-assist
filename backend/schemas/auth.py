@@ -1,8 +1,12 @@
 """Pydantic schemas for authentication and password recovery workflows."""
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+
+
+UserRole = Literal["user", "admin"]
+AccountStatus = Literal["active", "suspended", "banned"]
 
 
 class SignupRequest(BaseModel):
@@ -101,5 +105,7 @@ class UserProfileResponse(BaseModel):
     id: str = Field(description="User unique identifier UUID.")
     email: EmailStr = Field(description="User account email address.")
     username: str | None = Field(default=None, description="Account display username.")
+    role: UserRole = Field(description="Persisted authorization role.")
+    account_status: AccountStatus = Field(description="Persisted account moderation status.")
 
 

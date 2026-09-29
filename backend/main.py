@@ -7,7 +7,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api.auth import router as auth_router
+from backend.api.admin import router as admin_router
 from backend.api.routes.chatbot import router as chatbot_router
+from backend.api.routes.events import router as events_router
+from backend.api.routes.forum import router as forum_router
 from backend.api.routes.learning import router as learning_router
 from backend.api.routes.search import router as search_router
 from backend.core.config import settings
@@ -58,6 +61,9 @@ app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
 app.include_router(search_router, prefix=settings.API_V1_PREFIX)
 app.include_router(learning_router, prefix=settings.API_V1_PREFIX)
 app.include_router(chatbot_router, prefix=settings.API_V1_PREFIX)
+app.include_router(events_router, prefix=settings.API_V1_PREFIX)
+app.include_router(forum_router, prefix=settings.API_V1_PREFIX)
+app.include_router(admin_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/health", tags=["Health"])
