@@ -1,6 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { DashboardPage, HomePage } from '@/page'
+import { AdminPage, DashboardPage, HomePage } from '@/page'
 import { useAuthStore } from '@/lib/auth-store'
 
 export default function App() {
@@ -11,34 +11,41 @@ export default function App() {
           queries: {
             staleTime: 5 * 60 * 1000,
             retry: (failureCount, error) => {
-              if (error instanceof Error && error.message.toLowerCase().includes('rate limit')) {
-                return false
-              }
+              if (error instanceof Error && error.message.toLowerCase().includes('rate limit')) return false
               return failureCount < 1
             },
           },
         },
       }),
   )
-  const user = useAuthStore((s) => s.user)
+  const user = useAuthStore((state) => state.user)
+  const [sessionChecked, setSessionChecked] = useState(false)
+
+  useEffect(() => {
+    void useAuthStore.getState().refreshCurrentUser().finally(() => setSessionChecked(true))
+  }, [])
 
   const handleLogout = () => {
     useAuthStore.getState().logout()
     window.scrollTo({ top: 0 })
+    if (window.location.pathname.startsWith('/admin')) window.location.assign('/')
   }
 
-  // Signed-in users land on the dashboard instead of the marketing page.
-  if (user) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <DashboardPage onLogout={handleLogout} />
-      </QueryClientProvider>
-    )
-  }
+  const isAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')
 
   return (
     <QueryClientProvider client={queryClient}>
-      <HomePage />
+      {isAdminRoute ? (
+        sessionChecked ? <AdminPage onLogout={handleLogout} /> : <FullPageLoading />
+      ) : user ? (
+        <DashboardPage onLogout={handleLogout} />
+      ) : (
+        <HomePage />
+      )}
     </QueryClientProvider>
   )
+}
+
+function FullPageLoading() {
+  return <main className="flex min-h-dvh items-center justify-center bg-background text-sm text-muted-foreground">Loading session…</main>
 }
