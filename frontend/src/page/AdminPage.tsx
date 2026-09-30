@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   ArrowLeft,
   CalendarDays,
@@ -30,8 +30,28 @@ const navItems = [
 
 export default function AdminPage({ onLogout }: AdminPageProps) {
   const user = useAuthStore((state) => state.user)
+  const token = useAuthStore((state) => state.token)
+  const refreshCurrentUser = useAuthStore((state) => state.refreshCurrentUser)
+  const [loading, setLoading] = useState(Boolean(token && user?.role !== 'admin'))
   const [section, setSection] = useState<AdminSection>('users')
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  useEffect(() => {
+    if (token && user?.role !== 'admin') {
+      void refreshCurrentUser().finally(() => setLoading(false))
+    }
+  }, [token, user?.role, refreshCurrentUser])
+
+  if (loading) {
+    return (
+      <main className="flex min-h-dvh items-center justify-center bg-background p-6 text-foreground">
+        <div className="flex items-center gap-3 text-sm text-muted-foreground">
+          <Shield className="size-5 animate-pulse text-accent-text" />
+          Verifying administrator permissions…
+        </div>
+      </main>
+    )
+  }
 
   if (user?.role !== 'admin') {
     return (

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { AdminPage, DashboardPage, HomePage } from '@/page'
 import { useAuthStore } from '@/lib/auth-store'
@@ -21,6 +21,10 @@ export default function App() {
       }),
   )
   const user = useAuthStore((s) => s.user)
+
+  useEffect(() => {
+    void useAuthStore.getState().refreshCurrentUser()
+  }, [])
 
   const handleLogout = () => {
     useAuthStore.getState().logout()
