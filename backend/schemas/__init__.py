@@ -38,6 +38,18 @@ from backend.schemas.chatbot import (
     StructuredChatbotOutput,
     ChatbotResponse,
 )
+from backend.schemas.assessment import (
+    AssessmentQuestionType,
+    MCQOption,
+    GitHubProjectContext,
+    AssessmentQuestion,
+    GenerateAssessmentRequest,
+    GenerateAssessmentResponse,
+    QuestionAnswerSubmission,
+    EvaluateAssessmentRequest,
+    QuestionEvaluationResult,
+    EvaluateAssessmentResponse,
+)
 
 __all__ = [
     "AuthResponse",
@@ -68,4 +80,15 @@ __all__ = [
     "ChatbotRequest",
     "StructuredChatbotOutput",
     "ChatbotResponse",
+    "AssessmentQuestionType",
+    "MCQOption",
+    "GitHubProjectContext",
+    "AssessmentQuestion",
+    "GenerateAssessmentRequest",
+    "GenerateAssessmentResponse",
+    "QuestionAnswerSubmission",
+    "EvaluateAssessmentRequest",
+    "QuestionEvaluationResult",
+    "EvaluateAssessmentResponse",
 ]
+
