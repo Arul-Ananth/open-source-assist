@@ -1,113 +1,416 @@
-import { type FormEvent, useEffect, useMemo, useState } from 'react'
-import { CalendarDays, MapPin, Monitor, Pencil, Plus, RefreshCw, Trash2 } from 'lucide-react'
-import { Button } from '@/components/ui'
+import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { CalendarDays, MapPin, Monitor, Pencil, Plus, RefreshCw, Trash2, X } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/auth-store'
-import {
-  createAdminEvent,
-  deleteAdminEvent,
-  deleteEndedAdminEvents,
-  getAdminEvents,
-  updateAdminEvent,
-} from '@/lib/admin-api'
-import { eventStartsAt, isEventEnded } from '@/lib/events-api'
-import { EVENT_TYPES, type EventDraft, type EventItem, type EventMode } from '@/types/events'
+import { createEvent, deleteEndedEvents, deleteEvent, listEvents, updateEvent } from '@/lib/events-api'
+import { eventStartsAt, formatDate, isEventEnded } from '@/components/dashboard/EventsSection'
+import type { EventInput, EventItem, EventMode } from '@/types/events'
 
-const emptyDraft = (): EventDraft => ({
-  name: '', type: 'Meetup', date: '', time: '', mode: 'Online', location: '', organizer: '',
+const EVENT_TYPES = [
+  'Hackathon',
+  'Workshop',
+  'Meetup',
+  'Conference',
+  'Webinar',
+  'Coding Contest',
+  'Open Source Program',
+  'Other',
+]
+
+const blank = (): EventInput => ({
+  name: '',
+  organizer: '',
+  type: 'Meetup',
+  date: '',
+  time: '',
+  mode: 'Online',
+  location: '',
+  applicationUrl: '',
 })
 
 export default function AdminEventsSection() {
-  const token = useAuthStore((state) => state.token)
+  const token = useAuthStore((s) => s.token)
   const [events, setEvents] = useState<EventItem[]>([])
-  const [draft, setDraft] = useState<EventDraft>(emptyDraft)
+  const [draft, setDraft] = useState<EventInput | null>(null)
   const [editingId, setEditingId] = useState<number | null>(null)
-  const [showForm, setShowForm] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [saving, setSaving] = useState(false)
+  const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const load = async () => {
-    if (!token) return
     setLoading(true)
     setError(null)
-    try { setEvents((await getAdminEvents(token)).events) }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not load events') }
-    finally { setLoading(false) }
+    try {
+      setEvents(await listEvents())
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not load events')
+    } finally {
+      setLoading(false)
+    }
   }
 
-  useEffect(() => { void load() }, [token])
-  const sorted = useMemo(() => [...events].sort((a, b) => eventStartsAt(a) - eventStartsAt(b)), [events])
-  const endedCount = sorted.filter((event) => isEventEnded(event)).length
+  useEffect(() => {
+    void load()
+  }, [])
 
-  const startCreate = () => { setEditingId(null); setDraft(emptyDraft()); setShowForm(true) }
+  const sorted = useMemo(
+    () => [...events].sort((a, b) => eventStartsAt(a) - eventStartsAt(b)),
+    [events],
+  )
+  const ended = sorted.filter((event) => isEventEnded(event))
+
+  const startCreate = () => {
+    setEditingId(null)
+    setDraft(blank())
+    setError(null)
+  }
+
   const startEdit = (event: EventItem) => {
     setEditingId(event.id)
-    setDraft({ name: event.name, type: event.type, date: event.date, time: event.time.slice(0, 5), mode: event.mode, location: event.location, organizer: event.organizer })
-    setShowForm(true)
-  }
-  const cancel = () => { setEditingId(null); setDraft(emptyDraft()); setShowForm(false) }
-
-  const submit = async (event: FormEvent) => {
-    event.preventDefault()
-    if (!token) return
-    setSaving(true)
+    setDraft({
+      name: event.name,
+      organizer: event.organizer,
+      type: event.type,
+      date: event.date,
+      time: event.time,
+      mode: event.mode,
+      location: event.location,
+      applicationUrl: event.applicationUrl,
+    })
     setError(null)
-    const normalized = { ...draft, name: draft.name.trim(), organizer: draft.organizer.trim(), location: draft.mode === 'Offline' ? draft.location.trim() : '' }
+  }
+
+  const cancel = () => {
+    setDraft(null)
+    setEditingId(null)
+  }
+
+  const submit = async (formEvent: FormEvent) => {
+    formEvent.preventDefault()
+    if (!draft || !token) return
+    if (
+      !draft.name.trim() ||
+      !draft.organizer.trim() ||
+      !draft.date ||
+      !draft.time ||
+      (draft.mode === 'Offline' && !draft.location.trim())
+    )
+      return
+
+    setBusy(true)
+    setError(null)
     try {
-      if (editingId === null) {
-        const created = await createAdminEvent(token, normalized)
-        setEvents((current) => [...current, created])
-      } else {
-        const updated = await updateAdminEvent(token, editingId, normalized)
-        setEvents((current) => current.map((item) => item.id === updated.id ? updated : item))
-      }
+      const saved =
+        editingId === null
+          ? await createEvent(token, draft)
+          : await updateEvent(token, editingId, draft)
+      setEvents((current) =>
+        editingId === null
+          ? [...current, saved]
+          : current.map((item) => (item.id === saved.id ? saved : item)),
+      )
       cancel()
-    } catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not save the event') }
-    finally { setSaving(false) }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not save event')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const remove = async (event: EventItem) => {
-    if (!token || !window.confirm(`Delete ${event.name}?`)) return
-    try { await deleteAdminEvent(token, event.id); setEvents((current) => current.filter((item) => item.id !== event.id)) }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not delete the event') }
+    if (!token || !window.confirm(`Delete “${event.name}”?`)) return
+    setBusy(true)
+    setError(null)
+    try {
+      await deleteEvent(token, event.id)
+      setEvents((current) => current.filter((item) => item.id !== event.id))
+      if (editingId === event.id) cancel()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not delete event')
+    } finally {
+      setBusy(false)
+    }
   }
 
   const removeEnded = async () => {
-    if (!token || !endedCount || !window.confirm(`Delete all ${endedCount} ended events?`)) return
-    try { await deleteEndedAdminEvents(token); setEvents((current) => current.filter((event) => !isEventEnded(event))) }
-    catch (reason) { setError(reason instanceof Error ? reason.message : 'Could not delete ended events') }
+    if (!token || ended.length === 0 || !window.confirm(`Delete all ${ended.length} ended events?`))
+      return
+    setBusy(true)
+    setError(null)
+    try {
+      await deleteEndedEvents(token)
+      setEvents((current) => current.filter((item) => !isEventEnded(item)))
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not delete ended events')
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
     <section className="space-y-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-        <div><p className="eyebrow">Admin / Events</p><h2 className="section-h2">Events</h2><p className="section-body">Publish and manage events shown to contributors.</p></div>
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="font-mono text-xs uppercase tracking-[0.18em] text-accent-text">
+            Admin / Events
+          </p>
+          <h1 className="mt-2 text-2xl font-bold tracking-tight">Events</h1>
+          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+            Manage the events shown in the public Events section. Changes are stored in the backend
+            database.
+          </p>
+        </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="secondary" onClick={() => void load()} disabled={loading}><RefreshCw className={loading ? 'animate-spin' : ''} aria-hidden="true" /> Refresh</Button>
-          <Button variant="secondary" onClick={() => void removeEnded()} disabled={!endedCount}><Trash2 aria-hidden="true" /> Ended ({endedCount})</Button>
-          <Button onClick={startCreate}><Plus aria-hidden="true" /> Add event</Button>
+          <button
+            type="button"
+            onClick={() => void removeEnded()}
+            disabled={ended.length === 0 || busy}
+            className="inline-flex h-9 items-center gap-2 border border-border bg-surface px-3 text-xs font-semibold shadow-none hover:border-accent disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            <Trash2 className="size-3.5" /> Delete ended ({ended.length})
+          </button>
+          <button
+            type="button"
+            onClick={startCreate}
+            className="inline-flex h-9 items-center gap-2 border border-accent bg-accent px-3 text-xs font-semibold text-on-accent shadow-none hover:bg-accent-hover"
+          >
+            <Plus className="size-3.5" /> Add event
+          </button>
+          <button
+            type="button"
+            onClick={() => void load()}
+            disabled={loading || busy}
+            className="inline-flex h-9 items-center gap-2 border border-border bg-surface px-3 text-xs font-semibold shadow-none hover:border-accent disabled:opacity-40"
+          >
+            <RefreshCw className={cn('size-3.5', loading && 'animate-spin')} /> Refresh
+          </button>
         </div>
-      </header>
-      {error && <p role="alert" className="border border-accent/40 bg-surface p-3 text-sm text-accent-text">{error}</p>}
-      {showForm && <form onSubmit={(event) => void submit(event)} className="space-y-4 rounded-lg border border-border bg-surface p-4 sm:p-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <label className="grid gap-1.5 sm:col-span-2"><span className="text-xs font-mono text-muted-foreground">Event name</span><input required maxLength={200} value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} className="input-field" /></label>
-          <label className="grid gap-1.5"><span className="text-xs font-mono text-muted-foreground">Organizer</span><input required maxLength={150} value={draft.organizer} onChange={(event) => setDraft({ ...draft, organizer: event.target.value })} className="input-field" /></label>
-          <label className="grid gap-1.5"><span className="text-xs font-mono text-muted-foreground">Type</span><select value={draft.type} onChange={(event) => setDraft({ ...draft, type: event.target.value })} className="input-field">{EVENT_TYPES.map((type) => <option key={type}>{type}</option>)}</select></label>
-          <label className="grid gap-1.5"><span className="text-xs font-mono text-muted-foreground">Date</span><input type="date" required value={draft.date} onChange={(event) => setDraft({ ...draft, date: event.target.value })} className="input-field" /></label>
-          <label className="grid gap-1.5"><span className="text-xs font-mono text-muted-foreground">Time (IST)</span><input type="time" required value={draft.time} onChange={(event) => setDraft({ ...draft, time: event.target.value })} className="input-field" /></label>
-          <fieldset className="grid gap-1.5"><legend className="text-xs font-mono text-muted-foreground">Mode</legend><div className="flex gap-2">{(['Online', 'Offline'] as EventMode[]).map((mode) => <Button key={mode} type="button" size="sm" variant={draft.mode === mode ? 'default' : 'secondary'} onClick={() => setDraft({ ...draft, mode, location: mode === 'Online' ? '' : draft.location })}>{mode}</Button>)}</div></fieldset>
-          {draft.mode === 'Offline' && <label className="grid gap-1.5 sm:col-span-2"><span className="text-xs font-mono text-muted-foreground">Location</span><input required maxLength={255} value={draft.location} onChange={(event) => setDraft({ ...draft, location: event.target.value })} className="input-field" /></label>}
+      </div>
+
+      {error && (
+        <div role="alert" className="border border-accent bg-surface p-3 text-sm text-accent-text">
+          {error}
         </div>
-        <div className="flex justify-end gap-2 border-t border-border pt-4"><Button type="button" variant="secondary" onClick={cancel}>Cancel</Button><Button type="submit" disabled={saving}>{saving ? 'Saving…' : editingId === null ? 'Create event' : 'Save changes'}</Button></div>
-      </form>}
-      <section className="overflow-hidden rounded-lg border border-border bg-surface">
-        <header className="flex items-center justify-between border-b border-border px-4 py-3"><h3 className="font-mono text-xs font-semibold uppercase tracking-wider">Event list</h3><span className="font-mono text-xs text-muted-foreground">{events.length}</span></header>
-        {loading ? <p className="p-8 text-center text-sm text-muted-foreground">Loading events…</p> : sorted.length === 0 ? <p className="p-8 text-center text-sm text-muted-foreground">No events yet.</p> : <div className="divide-y divide-border">{sorted.map((event) => <article key={event.id} className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="min-w-0"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{event.name}</h3><span className="rounded border border-border px-2 py-0.5 font-mono text-[10px]">{event.type}</span>{isEventEnded(event) && <span className="text-xs text-accent-text">Ended</span>}</div><p className="mt-1 text-sm text-muted-foreground">{event.organizer}</p><div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground"><span className="inline-flex items-center gap-1.5"><CalendarDays className="size-3.5" aria-hidden="true" />{event.date} · {event.time} IST</span><span className="inline-flex items-center gap-1.5">{event.mode === 'Online' ? <Monitor className="size-3.5" aria-hidden="true" /> : <MapPin className="size-3.5" aria-hidden="true" />}{event.mode === 'Online' ? 'Online' : event.location}</span></div></div>
-          <div className="flex shrink-0 gap-2"><Button size="sm" variant="secondary" onClick={() => startEdit(event)}><Pencil aria-hidden="true" /> Edit</Button><Button size="sm" variant="outline" onClick={() => void remove(event)} aria-label={`Delete ${event.name}`}><Trash2 aria-hidden="true" /></Button></div>
-        </article>)}</div>}
-      </section>
+      )}
+
+      {draft && (
+        <form onSubmit={submit} className="border border-border bg-surface p-5 shadow-none">
+          <div className="flex items-center justify-between gap-3 border-b border-border pb-4">
+            <div>
+              <p className="font-mono text-xs font-semibold uppercase tracking-wider">
+                {editingId === null ? 'Create event' : 'Edit event'}
+              </p>
+              <p className="mt-1 text-xs text-muted-foreground">
+                All times are stored as local event time and displayed as IST.
+              </p>
+            </div>
+            <button type="button" onClick={cancel}>
+              <X className="size-4" />
+            </button>
+          </div>
+          <div className="mt-5 grid gap-4 md:grid-cols-2">
+            <Field label="Event name" className="md:col-span-2">
+              <input
+                required
+                value={draft.name}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                className="input-field shadow-none"
+              />
+            </Field>
+            <Field label="Organization">
+              <input
+                required
+                value={draft.organizer}
+                onChange={(e) => setDraft({ ...draft, organizer: e.target.value })}
+                className="input-field shadow-none"
+              />
+            </Field>
+            <Field label="Event type">
+              <select
+                value={draft.type}
+                onChange={(e) => setDraft({ ...draft, type: e.target.value })}
+                className="input-field shadow-none"
+              >
+                {EVENT_TYPES.map((type) => (
+                  <option key={type}>{type}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Date">
+              <input
+                required
+                type="date"
+                value={draft.date}
+                onChange={(e) => setDraft({ ...draft, date: e.target.value })}
+                className="input-field shadow-none"
+              />
+            </Field>
+            <Field label="Time (IST)">
+              <input
+                required
+                type="time"
+                value={draft.time}
+                onChange={(e) => setDraft({ ...draft, time: e.target.value })}
+                className="input-field shadow-none"
+              />
+            </Field>
+            <Field label="Mode">
+              <div className="grid grid-cols-2 gap-2">
+                {(['Online', 'Offline'] as EventMode[]).map((mode) => (
+                  <button
+                    key={mode}
+                    type="button"
+                    onClick={() =>
+                      setDraft({
+                        ...draft,
+                        mode,
+                        location: mode === 'Online' ? '' : draft.location,
+                      })
+                    }
+                    className={cn(
+                      'h-10 border px-3 text-sm font-semibold shadow-none',
+                      draft.mode === mode
+                        ? 'border-accent bg-accent text-on-accent'
+                        : 'border-border bg-background hover:border-accent',
+                    )}
+                  >
+                    {mode === 'Online' ? (
+                      <Monitor className="mr-1 inline size-3.5" />
+                    ) : (
+                      <MapPin className="mr-1 inline size-3.5" />
+                    )}
+                    {mode}
+                  </button>
+                ))}
+              </div>
+            </Field>
+            <Field label="Registration URL" className="md:col-span-2">
+              <input
+                type="url"
+                value={draft.applicationUrl}
+                onChange={(e) => setDraft({ ...draft, applicationUrl: e.target.value })}
+                className="input-field shadow-none"
+                placeholder="https://example.com/register"
+              />
+            </Field>
+            {draft.mode === 'Offline' && (
+              <Field label="Location" className="md:col-span-2">
+                <input
+                  required
+                  value={draft.location}
+                  onChange={(e) => setDraft({ ...draft, location: e.target.value })}
+                  className="input-field shadow-none"
+                />
+              </Field>
+            )}
+          </div>
+          <div className="mt-5 flex justify-end gap-2 border-t border-border pt-4">
+            <button
+              type="button"
+              onClick={cancel}
+              className="h-9 border border-border bg-background px-4 text-xs font-semibold shadow-none"
+            >
+              Cancel
+            </button>
+            <button
+              disabled={busy}
+              type="submit"
+              className="h-9 border border-accent bg-accent px-4 text-xs font-semibold text-on-accent shadow-none disabled:opacity-50"
+            >
+              {busy ? 'Saving…' : editingId === null ? 'Create event' : 'Save changes'}
+            </button>
+          </div>
+        </form>
+      )}
+
+      <div className="border border-border bg-surface shadow-none">
+        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+          <p className="font-mono text-xs font-semibold uppercase tracking-wider">Event list</p>
+          <span className="font-mono text-[11px] text-muted-foreground">{events.length}</span>
+        </div>
+        <div className="divide-y divide-border">
+          {loading ? (
+            <div className="p-10 text-center text-sm text-muted-foreground">Loading events…</div>
+          ) : (
+            sorted.map((event) => (
+              <article key={event.id} className="p-4 hover:bg-background">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h2 className="text-base font-semibold">{event.name}</h2>
+                      <span className="border border-border bg-background px-2 py-0.5 font-mono text-[10px] text-muted-foreground">
+                        {event.type}
+                      </span>
+                      {isEventEnded(event) && (
+                        <span className="border border-accent bg-surface px-2 py-0.5 font-mono text-[10px] font-semibold text-accent-text">
+                          Ended
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-2 text-sm text-muted-foreground">{event.organizer}</p>
+                  </div>
+                  <div className="grid gap-2 text-xs text-muted-foreground lg:text-right">
+                    <span className="inline-flex items-center gap-2 lg:justify-end">
+                      <CalendarDays className="size-3.5 text-accent-text" />
+                      {formatDate(event.date)} · {event.time} IST
+                    </span>
+                    <span className="inline-flex items-center gap-2 lg:justify-end">
+                      {event.mode === 'Online' ? (
+                        <Monitor className="size-3.5 text-accent-text" />
+                      ) : (
+                        <MapPin className="size-3.5 text-accent-text" />
+                      )}
+                      {event.mode === 'Online' ? 'Online' : event.location}
+                    </span>
+                  </div>
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => startEdit(event)}
+                      className="inline-flex h-8 items-center gap-1.5 border border-border bg-background px-2.5 text-xs font-semibold shadow-none hover:border-accent disabled:opacity-40"
+                    >
+                      <Pencil className="size-3.5" /> Edit
+                    </button>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => void remove(event)}
+                      className="inline-flex h-8 items-center gap-1.5 border border-accent bg-surface px-2.5 text-xs font-semibold text-accent-text shadow-none hover:bg-accent hover:text-on-accent disabled:opacity-40"
+                    >
+                      <Trash2 className="size-3.5" /> Delete
+                    </button>
+                  </div>
+                </div>
+              </article>
+            ))
+          )}
+          {!loading && events.length === 0 && (
+            <div className="p-10 text-center text-sm text-muted-foreground">
+              No events have been created yet.
+            </div>
+          )}
+        </div>
+      </div>
     </section>
+  )
+}
+
+function Field({
+  label,
+  className,
+  children,
+}: {
+  label: string
+  className?: string
+  children: React.ReactNode
+}) {
+  return (
+    <label className={cn('grid gap-2', className)}>
+      <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {label}
+      </span>
+      {children}
+    </label>
   )
 }

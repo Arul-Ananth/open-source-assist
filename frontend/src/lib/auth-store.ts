@@ -9,11 +9,11 @@ export interface User {
   email: string
   role?: UserRole
   account_status?: AccountStatus
+  accountStatus?: AccountStatus
   token?: string
 }
 
 interface AuthState {
-  /** null = logged out. */
   user: User | null
   token: string | null
   login: (email: string, password: string) => Promise<User>
@@ -30,25 +30,28 @@ interface AuthState {
   logout: () => void
 }
 
+function toUser(parsed: Partial<User>): User | null {
+  if (typeof parsed.username !== 'string' || typeof parsed.email !== 'string') return null
+  const status = parsed.account_status || parsed.accountStatus || 'active'
+  return {
+    id: parsed.id,
+    username: parsed.username,
+    email: parsed.email,
+    token: parsed.token,
+    role: parsed.role === 'admin' ? 'admin' : 'user',
+    account_status: status === 'suspended' || status === 'banned' ? status : 'active',
+    accountStatus: status === 'suspended' || status === 'banned' ? status : 'active',
+  }
+}
+
 function loadUser(): User | null {
   try {
     const raw = localStorage.getItem('osa-user')
     if (!raw) return null
-    const parsed = JSON.parse(raw) as Partial<User>
-    if (typeof parsed.username === 'string' && typeof parsed.email === 'string') {
-      return {
-        id: parsed.id,
-        username: parsed.username,
-        email: parsed.email,
-        role: parsed.role,
-        account_status: parsed.account_status,
-        token: parsed.token,
-      }
-    }
+    return toUser(JSON.parse(raw) as Partial<User>)
   } catch {
-    // localStorage unavailable or corrupt: treat as logged out
+    return null
   }
-  return null
 }
 
 function loadToken(): string | null {
@@ -69,7 +72,7 @@ function persistSession(user: User | null, token: string | null) {
       localStorage.removeItem('osa-token')
     }
   } catch {
-    // localStorage unavailable: session stays in memory only
+    // best effort
   }
 }
 
@@ -80,58 +83,50 @@ function extractErrorMessage(data: unknown, fallback: string): string {
     const errObj = data as Record<string, unknown>
     if (typeof errObj.detail === 'string') return errObj.detail
     if (Array.isArray(errObj.detail) && errObj.detail.length > 0) {
-      return errObj.detail
-        .map((item) =>
-          typeof item === 'object' && item && 'msg' in item ? String(item.msg) : String(item)
-        )
-        .join(', ')
+      return errObj.detail.map((item) => (typeof item === 'object' && item && 'msg' in item ? String(item.msg) : String(item))).join(', ')
     }
     if (typeof errObj.message === 'string') return errObj.message
   }
   return fallback
 }
 
+async function fetchProfile(accessToken: string, fallback: User): Promise<User> {
+  const response = await fetch('/api/v1/auth/me', { headers: { Authorization: `Bearer ${accessToken}` } })
+  if (!response.ok) return fallback
+  const profile = await response.json()
+  const status = profile.account_status || profile.accountStatus || fallback.account_status || 'active'
+  return {
+    id: profile.id,
+    username: profile.username || fallback.username,
+    email: profile.email || fallback.email,
+    token: accessToken,
+    role: profile.role === 'admin' ? 'admin' : 'user',
+    account_status: status === 'suspended' || status === 'banned' ? status : 'active',
+    accountStatus: status === 'suspended' || status === 'banned' ? status : 'active',
+  }
+}
+
 export const useAuthStore = create<AuthState>((set) => ({
   user: loadUser(),
   token: loadToken(),
 
-  login: async (email: string, password: string) => {
+  login: async (email, password) => {
     const res = await fetch('/api/v1/auth/login', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
     })
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => null)
-      throw new Error(extractErrorMessage(err, 'Invalid email or password'))
-    }
-
+    if (!res.ok) throw new Error(extractErrorMessage(await res.json().catch(() => null), 'Invalid email or password'))
     const { access_token } = await res.json()
-
-    // Fetch user profile
-    const meRes = await fetch('/api/v1/auth/me', {
-      headers: { Authorization: `Bearer ${access_token}` },
-    })
-
-    let user: User = {
+    const fallback: User = {
       username: email.split('@')[0] || 'contributor',
       email,
       token: access_token,
+      role: 'user',
+      account_status: 'active',
+      accountStatus: 'active',
     }
-
-    if (meRes.ok) {
-      const profile = await meRes.json()
-      user = {
-        id: profile.id,
-        username: profile.username || user.username,
-        email: profile.email || email,
-        role: profile.role,
-        account_status: profile.account_status,
-        token: access_token,
-      }
-    }
-
+    const user = await fetchProfile(access_token, fallback)
     persistSession(user, access_token)
     set({ user, token: access_token })
     return user
@@ -155,12 +150,14 @@ export const useAuthStore = create<AuthState>((set) => ({
       }
 
       const profile = await res.json()
+      const status = profile.account_status || profile.accountStatus || 'active'
       const user: User = {
         id: profile.id,
         username: profile.username,
         email: profile.email,
-        role: profile.role,
-        account_status: profile.account_status,
+        role: profile.role === 'admin' ? 'admin' : 'user',
+        account_status: status === 'suspended' || status === 'banned' ? status : 'active',
+        accountStatus: status === 'suspended' || status === 'banned' ? status : 'active',
         token,
       }
       persistSession(user, token)
@@ -171,73 +168,54 @@ export const useAuthStore = create<AuthState>((set) => ({
     }
   },
 
-  requestSignup: async (
-    username: string,
-    email: string,
-    password: string,
-    confirmPassword: string
-  ) => {
-    const trimmedUsername = username.trim()
+  requestSignup: async (username, email, password, confirmPassword) => {
     const res = await fetch('/api/v1/auth/signup', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        username: trimmedUsername || undefined,
+        username: username.trim() || undefined,
         email: email.trim().toLowerCase(),
         password,
         confirm_password: confirmPassword,
       }),
     })
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => null)
-      throw new Error(extractErrorMessage(err, 'Could not initiate registration'))
-    }
-
+    if (!res.ok) throw new Error(extractErrorMessage(await res.json().catch(() => null), 'Could not initiate registration'))
     return await res.json()
   },
 
-  verifySignupOtp: async (email: string, otp: string, username?: string) => {
+  verifySignupOtp: async (email, otp, username) => {
     const res = await fetch('/api/v1/auth/verify-signup-otp', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email.trim().toLowerCase(), otp: otp.trim() }),
     })
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => null)
-      throw new Error(extractErrorMessage(err, 'Invalid or expired verification code'))
-    }
-
+    if (!res.ok) throw new Error(extractErrorMessage(await res.json().catch(() => null), 'Invalid or expired verification code'))
     const { access_token } = await res.json()
-
-    const user: User = {
+    const fallback: User = {
       username: username?.trim() || email.split('@')[0] || 'contributor',
       email: email.trim().toLowerCase(),
       token: access_token,
+      role: 'user',
+      account_status: 'active',
+      accountStatus: 'active',
     }
-
+    const user = await fetchProfile(access_token, fallback)
     persistSession(user, access_token)
     set({ user, token: access_token })
     return user
   },
 
-  requestPasswordReset: async (email: string) => {
+  requestPasswordReset: async (email) => {
     const res = await fetch('/api/v1/auth/forgot-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: email.trim().toLowerCase() }),
     })
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => null)
-      throw new Error(extractErrorMessage(err, 'Could not send reset code'))
-    }
-
+    if (!res.ok) throw new Error(extractErrorMessage(await res.json().catch(() => null), 'Could not send reset code'))
     return await res.json()
   },
 
-  resetPassword: async (email: string, otp: string, newPassword: string) => {
+  resetPassword: async (email, otp, newPassword) => {
     const res = await fetch('/api/v1/auth/reset-password', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -247,12 +225,7 @@ export const useAuthStore = create<AuthState>((set) => ({
         new_password: newPassword,
       }),
     })
-
-    if (!res.ok) {
-      const err = await res.json().catch(() => null)
-      throw new Error(extractErrorMessage(err, 'Could not reset password'))
-    }
-
+    if (!res.ok) throw new Error(extractErrorMessage(await res.json().catch(() => null), 'Could not reset password'))
     return await res.json()
   },
 

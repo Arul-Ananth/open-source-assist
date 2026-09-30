@@ -10,9 +10,21 @@ export interface EventItem {
   mode: EventMode
   location: string
   organizer: string
+  applicationUrl: string
 }
 
-export type EventDraft = Omit<EventItem, 'id'>
+export interface EventInput {
+  name: string
+  organizer: string
+  type: string
+  date: string
+  time: string
+  mode: EventMode
+  location: string
+  applicationUrl: string
+}
+
+export type EventDraft = EventInput
 
 export const EVENT_TYPES = [
   'Hackathon',

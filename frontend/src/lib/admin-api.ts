@@ -38,7 +38,7 @@ export interface ForumBan {
   created_at: string
 }
 
-interface AdminUserListResponse {
+export interface AdminUserListResponse {
   users: AdminUser[]
   total: number
   limit: number

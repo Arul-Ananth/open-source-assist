@@ -17,17 +17,19 @@ class EventCreateRequest(BaseModel):
     mode: EventMode = Field(description="Whether the event is online or offline.")
     location: str = Field(default="", max_length=255, description="Venue for offline events.")
     organizer: str = Field(min_length=1, max_length=150, description="Event organizer.")
+    application_url: str = Field(default="", max_length=1000, description="Registration URL.")
 
 
 class EventItem(BaseModel):
     id: int = Field(description="Event identifier.")
-    name: str = Field(description="Event name.")
-    type: str = Field(description="Event category.")
+    name: str = Field(default="Community Event", description="Event name.")
+    type: str = Field(default="Meetup", description="Event category.")
     date: DateType = Field(description="Event date.")
-    time: str = Field(description="Event time in HH:MM format.")
-    mode: EventMode = Field(description="Whether the event is online or offline.")
-    location: str = Field(description="Venue for offline events.")
-    organizer: str = Field(description="Event organizer.")
+    time: str = Field(default="10:00", description="Event time in HH:MM format.")
+    mode: EventMode = Field(default="Online", description="Whether the event is online or offline.")
+    location: str = Field(default="", description="Venue for offline events.")
+    organizer: str = Field(default="Community", description="Event organizer.")
+    application_url: str | None = Field(default="", description="Registration URL.")
 
 
 class EventListResponse(BaseModel):

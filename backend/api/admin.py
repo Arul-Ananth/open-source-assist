@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.dependencies import get_current_admin
 from backend.core.database import get_db
-from backend.models.event_model import Event
+from backend.models.event import Event
 from backend.models.user_model import User
 from backend.schemas.admin import (
     AdminForumPostItem,
@@ -34,7 +34,7 @@ from backend.services.forum_service import ForumService
 router = APIRouter(prefix="/admin", tags=["Administration"])
 
 
-def _user_item(user: User) -> AdminUserItem:
+def _to_admin_user(user: User) -> AdminUserItem:
     return AdminUserItem(
         id=str(user.id),
         email=user.email,
@@ -46,15 +46,37 @@ def _user_item(user: User) -> AdminUserItem:
 
 
 def _event_item(event: Event) -> EventItem:
+    from datetime import date as DateClass
+
+    mode_val = "Online" if (event.mode or "").strip().lower() in ("online", "virtual") else "Offline"
+    raw_date = getattr(event, "event_date", None) or getattr(event, "date", None)
+    if isinstance(raw_date, str):
+        try:
+            date_val = DateClass.fromisoformat(raw_date)
+        except ValueError:
+            date_val = DateClass.today()
+    elif raw_date is not None:
+        date_val = raw_date
+    else:
+        date_val = DateClass.today()
+
+    time_val = getattr(event, "event_time", None) or getattr(event, "time", None)
+    time_str = time_val.strftime("%H:%M") if hasattr(time_val, "strftime") else str(time_val or "10:00")[:5]
+    name_val = getattr(event, "name", None) or getattr(event, "description", None) or "Community Event"
+    organizer_val = getattr(event, "organizer", None) or getattr(event, "company_organization", None) or "Community"
+    type_val = getattr(event, "type", None) or getattr(event, "event_type", None) or "Meetup"
+    app_url = getattr(event, "application_url", None) or ""
+
     return EventItem(
         id=event.id,
-        name=event.name,
-        type=event.type,
-        date=event.date,
-        time=event.time.strftime("%H:%M"),
-        mode=event.mode,
-        location=event.location,
-        organizer=event.organizer,
+        name=name_val,
+        type=type_val,
+        date=date_val,
+        time=time_str,
+        mode=mode_val,
+        location=event.location or "",
+        organizer=organizer_val,
+        application_url=app_url,
     )
 
 
@@ -102,10 +124,9 @@ async def list_users(
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> AdminUserListResponse:
-    """List and search accounts for administrator review."""
     users, total = await AdminService.list_users(db, search, limit, offset)
     return AdminUserListResponse(
-        users=[_user_item(user) for user in users], total=total, limit=limit, offset=offset
+        users=[_to_admin_user(user) for user in users], total=total, limit=limit, offset=offset
     )
 
 
@@ -116,11 +137,10 @@ async def update_user(
     admin: Annotated[dict, Depends(get_current_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> AdminUserItem:
-    """Change a user's role or account moderation status."""
     if str(user_id) == admin["user_id"]:
-        raise HTTPException(status_code=400, detail="An administrator cannot modify their own account.")
+        raise HTTPException(status_code=400, detail="You cannot change your own role or account status")
     if payload.role is None and payload.account_status is None:
-        raise HTTPException(status_code=400, detail="Provide at least one field to update.")
+        raise HTTPException(status_code=400, detail="Provide at least one field to update")
     user = await AdminService.get_user(db, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -128,7 +148,7 @@ async def update_user(
         updated = await AdminService.update_user(db, user, payload.role, payload.account_status)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
-    return _user_item(updated)
+    return _to_admin_user(updated)
 
 
 @router.delete("/users/{user_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -137,9 +157,8 @@ async def delete_user(
     admin: Annotated[dict, Depends(get_current_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
-    """Delete a user account, protecting the current and last administrator."""
     if str(user_id) == admin["user_id"]:
-        raise HTTPException(status_code=400, detail="An administrator cannot delete their own account.")
+        raise HTTPException(status_code=400, detail="You cannot delete your own account")
     user = await AdminService.get_user(db, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="User not found")
@@ -155,8 +174,8 @@ async def admin_events(
     _admin: Annotated[dict, Depends(get_current_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> EventListResponse:
-    """List persisted events for administrator management."""
-    return EventListResponse(events=[_event_item(event) for event in await EventService.list_events(db)])
+    events = await EventService.list_events(db)
+    return EventListResponse(events=[_event_item(e) for e in events])
 
 
 @router.post("/events", response_model=EventItem, status_code=status.HTTP_201_CREATED)
@@ -165,9 +184,9 @@ async def create_event(
     _admin: Annotated[dict, Depends(get_current_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> EventItem:
-    """Create a community event."""
     try:
-        return _event_item(await EventService.create_event(db, payload))
+        event = await EventService.create_event(db, payload)
+        return _event_item(event)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
@@ -179,14 +198,10 @@ async def update_event(
     _admin: Annotated[dict, Depends(get_current_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> EventItem:
-    """Replace an event's editable fields."""
-    event = await EventService.get_event(db, event_id)
+    event = await EventService.update_event(db, event_id, payload)
     if event is None:
         raise HTTPException(status_code=404, detail="Event not found")
-    try:
-        return _event_item(await EventService.update_event(db, event, payload))
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return _event_item(event)
 
 
 @router.delete("/events/ended", response_model=DeleteEndedEventsResponse)
@@ -194,7 +209,6 @@ async def delete_ended_events(
     _admin: Annotated[dict, Depends(get_current_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> DeleteEndedEventsResponse:
-    """Delete all events that have already ended in India Standard Time."""
     return DeleteEndedEventsResponse(deleted=await EventService.delete_ended(db))
 
 
@@ -204,11 +218,9 @@ async def delete_event(
     _admin: Annotated[dict, Depends(get_current_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
-    """Delete a single event."""
-    event = await EventService.get_event(db, event_id)
-    if event is None:
+    deleted = await EventService.delete_event(db, event_id)
+    if not deleted:
         raise HTTPException(status_code=404, detail="Event not found")
-    await EventService.delete_event(db, event)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
@@ -217,7 +229,6 @@ async def list_forum_threads(
     _admin: Annotated[dict, Depends(get_current_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> AdminForumThreadListResponse:
-    """List forum threads and replies with forum-ban indicators."""
     bans = await ForumService.list_bans(db)
     banned_ids = {user.id for _, user in bans}
     threads = await ForumService.list_threads(db)
@@ -235,7 +246,6 @@ async def delete_forum_thread(
     _admin: Annotated[dict, Depends(get_current_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
-    """Delete a forum thread and its replies."""
     try:
         await ForumService.delete_thread(db, thread_id)
     except LookupError as exc:
@@ -249,7 +259,6 @@ async def ban_forum_user(
     admin: Annotated[dict, Depends(get_current_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
-    """Ban a non-admin account from creating forum posts."""
     try:
         await ForumService.ban_user(db, user_id, uuid.UUID(admin["user_id"]))
     except LookupError as exc:
@@ -265,7 +274,6 @@ async def unban_forum_user(
     _admin: Annotated[dict, Depends(get_current_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> Response:
-    """Remove a forum-only ban from a user."""
     await ForumService.unban_user(db, user_id)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
@@ -275,7 +283,6 @@ async def list_forum_bans(
     _admin: Annotated[dict, Depends(get_current_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> ForumBanListResponse:
-    """List active forum-only bans."""
     return ForumBanListResponse(
         bans=[
             ForumBanItem(

@@ -82,6 +82,8 @@ class AuthService:
             username=payload.get("username"),
             password_hash=payload["password_hash"],
             is_active=True,
+            role="user",
+            account_status="active",
         )
         db.add(user)
         try:
