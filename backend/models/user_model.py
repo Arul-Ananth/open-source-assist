@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Boolean, DateTime, String, Uuid, func
+from sqlalchemy import Boolean, DateTime, JSON, String, Uuid, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -30,7 +30,9 @@ class User(Base):
         String(20), nullable=False, default="active", server_default="active"
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true", nullable=False)
-    context: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    context: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON().with_variant(JSONB, "postgresql"), nullable=True
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False
     )

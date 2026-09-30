@@ -1,4 +1,4 @@
-"""Public read-only event routes."""
+from datetime import date as DateClass
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,7 +12,6 @@ router = APIRouter(prefix="/events", tags=["Events"])
 
 
 def _to_event_item(event: Event) -> EventItem:
-    from datetime import date as DateClass
 
     mode_val = "Online" if (event.mode or "").strip().lower() in ("online", "virtual") else "Offline"
     raw_date = getattr(event, "event_date", None) or getattr(event, "date", None)

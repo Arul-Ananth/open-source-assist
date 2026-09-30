@@ -44,7 +44,7 @@ class AdminService:
             or (account_status is not None and account_status != "active")
         )
         if removing_admin_access and await AdminService.active_admin_count(db) <= 1:
-            raise ValueError("The last active administrator cannot be demoted or disabled")
+            raise ValueError("The last administrator cannot be demoted or disabled")
 
         if role is not None:
             user.role = role
@@ -59,6 +59,6 @@ class AdminService:
     async def delete_user(db: AsyncSession, user: User) -> None:
         if user.role == "admin" and user.account_status == "active" and user.is_active:
             if await AdminService.active_admin_count(db) <= 1:
-                raise ValueError("The last active administrator cannot be deleted")
+                raise ValueError("The last administrator cannot be deleted")
         await db.delete(user)
         await db.commit()

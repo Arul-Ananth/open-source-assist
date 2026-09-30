@@ -6,7 +6,7 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, UniqueConstraint, Uuid
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, JSON, UniqueConstraint, Uuid
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -41,7 +41,7 @@ class UserRoadmapProgress(Base):
         DateTime(timezone=True), nullable=True
     )
     extra_metadata: Mapped[dict[str, Any] | None] = mapped_column(
-        "metadata", JSONB, nullable=True
+        "metadata", JSON().with_variant(JSONB, "postgresql"), nullable=True
     )
 
     user: Mapped[User] = relationship(back_populates="roadmap_progress")

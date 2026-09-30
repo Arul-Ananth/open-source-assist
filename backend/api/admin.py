@@ -1,6 +1,7 @@
 """Administrator-only user, event, and forum moderation routes."""
 
 import uuid
+from datetime import date as DateClass
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
@@ -46,8 +47,6 @@ def _to_admin_user(user: User) -> AdminUserItem:
 
 
 def _event_item(event: Event) -> EventItem:
-    from datetime import date as DateClass
-
     mode_val = "Online" if (event.mode or "").strip().lower() in ("online", "virtual") else "Offline"
     raw_date = getattr(event, "event_date", None) or getattr(event, "date", None)
     if isinstance(raw_date, str):
@@ -87,32 +86,34 @@ async def _admin_thread_item(
     if thread is None:
         return None
     author = await db.scalar(select(User).where(User.id == thread.author_id))
-    if author is None:
-        return None
+    author_id_str = str(author.id) if author else str(thread.author_id)
+    author_username = author.username if author else "[deleted]"
+    author_email = author.email if author else "deleted@user"
+    author_banned = (author.id in banned_ids) if author else False
+
     replies: list[AdminForumPostItem] = []
     for post in await ForumService.load_posts(db, thread.id):
         post_author = await db.scalar(select(User).where(User.id == post.author_id))
-        if post_author is not None:
-            replies.append(
-                AdminForumPostItem(
-                    id=post.id,
-                    author_id=str(post_author.id),
-                    author_username=post_author.username,
-                    author_email=post_author.email,
-                    content=post.content,
-                    created_at=post.created_at,
-                    banned=post_author.id in banned_ids,
-                )
+        replies.append(
+            AdminForumPostItem(
+                id=post.id,
+                author_id=str(post_author.id) if post_author else str(post.author_id),
+                author_username=post_author.username if post_author else "[deleted]",
+                author_email=post_author.email if post_author else "deleted@user",
+                content=post.content,
+                created_at=post.created_at,
+                banned=(post_author.id in banned_ids) if post_author else False,
             )
+        )
     return AdminForumThreadItem(
         id=thread.id,
         title=thread.title,
-        author_id=str(author.id),
-        author_username=author.username,
-        author_email=author.email,
+        author_id=author_id_str,
+        author_username=author_username,
+        author_email=author_email,
         created_at=thread.created_at,
         replies=replies,
-        banned=author.id in banned_ids,
+        banned=author_banned,
     )
 
 
@@ -138,7 +139,7 @@ async def update_user(
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> AdminUserItem:
     if str(user_id) == admin["user_id"]:
-        raise HTTPException(status_code=400, detail="You cannot change your own role or account status")
+        raise HTTPException(status_code=400, detail="You cannot modify your own account")
     if payload.role is None and payload.account_status is None:
         raise HTTPException(status_code=400, detail="Provide at least one field to update")
     user = await AdminService.get_user(db, user_id)
@@ -173,8 +174,10 @@ async def delete_user(
 async def admin_events(
     _admin: Annotated[dict, Depends(get_current_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    limit: Annotated[int, Query(ge=1, le=100)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> EventListResponse:
-    events = await EventService.list_events(db)
+    events = await EventService.list_events(db, limit=limit, offset=offset)
     return EventListResponse(events=[_event_item(e) for e in events])
 
 
@@ -192,13 +195,17 @@ async def create_event(
 
 
 @router.patch("/events/{event_id}", response_model=EventItem)
+@router.put("/events/{event_id}", response_model=EventItem)
 async def update_event(
     event_id: int,
     payload: EventCreateRequest,
     _admin: Annotated[dict, Depends(get_current_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ) -> EventItem:
-    event = await EventService.update_event(db, event_id, payload)
+    try:
+        event = await EventService.update_event(db, event_id, payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if event is None:
         raise HTTPException(status_code=404, detail="Event not found")
     return _event_item(event)
