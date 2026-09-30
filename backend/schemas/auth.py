@@ -107,5 +107,3 @@ class UserProfileResponse(BaseModel):
     username: str | None = Field(default=None, description="Account display username.")
     role: UserRole = Field(default="user", description="Account authorization role.")
     account_status: AccountStatus = Field(default="active", description="Account status.")
-
-

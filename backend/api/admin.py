@@ -46,18 +46,16 @@ def _user_item(user: User) -> AdminUserItem:
 
 
 def _event_item(event: Event) -> EventItem:
-    mode = "Online" if (event.mode or "").strip().lower() in ("online", "virtual") else "Offline"
     return EventItem(
         id=event.id,
         name=event.name,
         type=event.type,
         date=event.date,
         time=event.time.strftime("%H:%M"),
-        mode=mode,
-        location=event.location or "",
+        mode=event.mode,
+        location=event.location,
         organizer=event.organizer,
     )
-
 
 
 async def _admin_thread_item(

@@ -8,8 +8,7 @@ from backend.models.event_model import Event
 from backend.models.roadmap import Roadmap
 from backend.models.roadmap_step import RoadmapStep
 from backend.models.user_roadmap_progress import UserRoadmapProgress
-
-from backend.models.forum_model import ForumPost, ForumThread, ForumBan
+from backend.models.forum_model import ForumThread, ForumPost, ForumBan
 
 __all__ = [
     "OTP",

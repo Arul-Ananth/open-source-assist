@@ -11,10 +11,6 @@ from backend.services.event_service import EventService
 router = APIRouter(prefix="/events", tags=["Events"])
 
 
-def _normalize_mode(mode: str | None) -> str:
-    return "Online" if (mode or "").strip().lower() in ("online", "virtual") else "Offline"
-
-
 def _event_item(event: Event) -> EventItem:
     return EventItem(
         id=event.id,
@@ -22,8 +18,8 @@ def _event_item(event: Event) -> EventItem:
         type=event.type,
         date=event.date,
         time=event.time.strftime("%H:%M"),
-        mode=_normalize_mode(event.mode),
-        location=event.location or "",
+        mode=event.mode,
+        location=event.location,
         organizer=event.organizer,
     )
 
