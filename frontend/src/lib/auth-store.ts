@@ -1,9 +1,14 @@
 import { create } from 'zustand'
 
+export type UserRole = 'user' | 'admin'
+export type AccountStatus = 'active' | 'suspended' | 'banned'
+
 export interface User {
   id?: string
   username: string
   email: string
+  role?: UserRole
+  account_status?: AccountStatus
   token?: string
 }
 
@@ -12,6 +17,7 @@ interface AuthState {
   user: User | null
   token: string | null
   login: (email: string, password: string) => Promise<User>
+  refreshCurrentUser: () => Promise<User | null>
   requestSignup: (
     username: string,
     email: string,
@@ -34,6 +40,8 @@ function loadUser(): User | null {
         id: parsed.id,
         username: parsed.username,
         email: parsed.email,
+        role: parsed.role,
+        account_status: parsed.account_status,
         token: parsed.token,
       }
     }
@@ -118,6 +126,8 @@ export const useAuthStore = create<AuthState>((set) => ({
         id: profile.id,
         username: profile.username || user.username,
         email: profile.email || email,
+        role: profile.role,
+        account_status: profile.account_status,
         token: access_token,
       }
     }
@@ -125,6 +135,40 @@ export const useAuthStore = create<AuthState>((set) => ({
     persistSession(user, access_token)
     set({ user, token: access_token })
     return user
+  },
+
+  refreshCurrentUser: async () => {
+    const token = loadToken()
+    if (!token) {
+      set({ user: null, token: null })
+      return null
+    }
+
+    try {
+      const res = await fetch('/api/v1/auth/me', {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      if (!res.ok) {
+        persistSession(null, null)
+        set({ user: null, token: null })
+        return null
+      }
+
+      const profile = await res.json()
+      const user: User = {
+        id: profile.id,
+        username: profile.username,
+        email: profile.email,
+        role: profile.role,
+        account_status: profile.account_status,
+        token,
+      }
+      persistSession(user, token)
+      set({ user, token })
+      return user
+    } catch {
+      return loadUser()
+    }
   },
 
   requestSignup: async (

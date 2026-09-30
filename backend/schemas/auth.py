@@ -1,8 +1,12 @@
 """Pydantic schemas for authentication and password recovery workflows."""
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+
+
+UserRole = Literal["user", "admin"]
+AccountStatus = Literal["active", "suspended", "banned"]
 
 
 class SignupRequest(BaseModel):
@@ -49,7 +53,7 @@ class VerifySignupOTPRequest(BaseModel):
 class LoginRequest(BaseModel):
     """Payload for user login."""
 
-    email: EmailStr = Field(description="Account email address.")
+    email: str = Field(min_length=1, max_length=255, description="Account email address or username.")
     password: str = Field(min_length=1, max_length=128, description="Account password.")
 
 
@@ -101,5 +105,7 @@ class UserProfileResponse(BaseModel):
     id: str = Field(description="User unique identifier UUID.")
     email: EmailStr = Field(description="User account email address.")
     username: str | None = Field(default=None, description="Account display username.")
+    role: UserRole = Field(default="user", description="Account authorization role.")
+    account_status: AccountStatus = Field(default="active", description="Account status.")
 
 

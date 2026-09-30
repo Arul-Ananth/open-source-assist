@@ -96,14 +96,19 @@ class AuthService:
     @staticmethod
     async def login(db: AsyncSession, email: str, password: str) -> str:
         """Verify user credentials and return signed access token."""
-        normalized_email = email.strip().lower()
-        user = await db.scalar(select(User).where(User.email == normalized_email))
+        normalized = email.strip().lower()
+        from sqlalchemy import or_
+        user = await db.scalar(
+            select(User).where(
+                or_(User.email == normalized, User.username == normalized)
+            )
+        )
 
         if user is None or not verify_password(password, user.password_hash):
             raise ValueError("Invalid email or password")
 
-        if not user.is_active:
-            raise ValueError("Account is deactivated")
+        if not user.is_active or getattr(user, "account_status", "active") != "active":
+            raise ValueError("Account is deactivated or suspended")
 
         return create_access_token(str(user.id))
 

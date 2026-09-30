@@ -1,77 +1,84 @@
-"""Service layer for event CRUD operations."""
+"""Business logic for public event reads and administrator event management."""
 
-from sqlalchemy import select
+from datetime import datetime, time
+from zoneinfo import ZoneInfo
+
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from backend.models.event import Event
-from backend.schemas.events import EventCreate
+from backend.models.event_model import Event
+from backend.schemas.events import EventCreateRequest
+
+IST = ZoneInfo("Asia/Kolkata")
 
 
-async def create_event(session: AsyncSession, payload: EventCreate) -> Event:
-    event = Event(
-        company_organization=payload.company_organization,
-        event_type=payload.event_type,
-        description=payload.description,
-        mode=payload.mode,
-        location=payload.location,
-        event_date=payload.event_date,
-        event_time=payload.event_time,
-        application_url=str(payload.application_url),
-    )
-    session.add(event)
-    await session.commit()
-    await session.refresh(event)
-    return event
+class EventService:
+    """Coordinate persisted event operations."""
 
+    @staticmethod
+    def starts_at(event: Event) -> datetime:
+        return datetime.combine(event.date, event.time, tzinfo=IST)
 
-async def list_events(
-    session: AsyncSession,
-    event_type: str | None = None,
-    mode: str | None = None,
-    company: str | None = None,
-    limit: int = 50,
-    offset: int = 0,
-) -> list[Event]:
-    stmt = select(Event).order_by(Event.event_date.desc())
-    if event_type:
-        stmt = stmt.where(Event.event_type == event_type)
-    if mode:
-        stmt = stmt.where(Event.mode == mode)
-    if company:
-        stmt = stmt.where(Event.company_organization.ilike(f"%{company}%"))
-    stmt = stmt.offset(offset).limit(limit)
-    result = await session.execute(stmt)
-    return list(result.scalars().all())
+    @staticmethod
+    def is_ended(event: Event, now: datetime | None = None) -> bool:
+        return EventService.starts_at(event) < (now or datetime.now(IST))
 
+    @staticmethod
+    async def list_events(db: AsyncSession) -> list[Event]:
+        result = await db.scalars(
+            select(Event).order_by(Event.date.asc(), Event.time.asc(), Event.id.asc())
+        )
+        return list(result.all())
 
-async def get_event(session: AsyncSession, event_id: int) -> Event | None:
-    result = await session.execute(select(Event).where(Event.id == event_id))
-    return result.scalar_one_or_none()
+    @staticmethod
+    async def get_event(db: AsyncSession, event_id: int) -> Event | None:
+        return await db.scalar(select(Event).where(Event.id == event_id))
 
+    @staticmethod
+    def _event_values(data: EventCreateRequest) -> dict[str, object]:
+        if data.mode == "Online":
+            location = ""
+        else:
+            location = data.location.strip()
+            if not location:
+                raise ValueError("Offline events require a location")
+        return {
+            "name": data.name.strip(),
+            "type": data.type.strip(),
+            "date": data.date,
+            "time": time.fromisoformat(data.time),
+            "mode": data.mode,
+            "location": location,
+            "organizer": data.organizer.strip(),
+        }
 
-async def update_event(
-    session: AsyncSession, event_id: int, payload: EventCreate
-) -> Event | None:
-    event = await get_event(session, event_id)
-    if not event:
-        return None
-    event.company_organization = payload.company_organization
-    event.event_type = payload.event_type
-    event.description = payload.description
-    event.mode = payload.mode
-    event.location = payload.location
-    event.event_date = payload.event_date
-    event.event_time = payload.event_time
-    event.application_url = str(payload.application_url)
-    await session.commit()
-    await session.refresh(event)
-    return event
+    @staticmethod
+    async def create_event(db: AsyncSession, data: EventCreateRequest) -> Event:
+        event = Event(**EventService._event_values(data))
+        db.add(event)
+        await db.commit()
+        await db.refresh(event)
+        return event
 
+    @staticmethod
+    async def update_event(db: AsyncSession, event: Event, data: EventCreateRequest) -> Event:
+        for field, value in EventService._event_values(data).items():
+            setattr(event, field, value)
+        await db.commit()
+        await db.refresh(event)
+        return event
 
-async def delete_event(session: AsyncSession, event_id: int) -> bool:
-    event = await get_event(session, event_id)
-    if not event:
-        return False
-    await session.delete(event)
-    await session.commit()
-    return True
+    @staticmethod
+    async def delete_event(db: AsyncSession, event: Event) -> None:
+        await db.delete(event)
+        await db.commit()
+
+    @staticmethod
+    async def delete_ended(db: AsyncSession) -> int:
+        events = await EventService.list_events(db)
+        ended_ids = [event.id for event in events if EventService.is_ended(event)]
+        if not ended_ids:
+            return 0
+        await db.execute(delete(Event).where(Event.id.in_(ended_ids)))
+        await db.commit()
+        return len(ended_ids)

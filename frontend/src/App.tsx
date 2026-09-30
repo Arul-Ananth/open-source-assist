@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { DashboardPage, HomePage } from '@/page'
+import { AdminPage, DashboardPage, HomePage } from '@/page'
 import { useAuthStore } from '@/lib/auth-store'
 
 export default function App() {
@@ -25,20 +25,22 @@ export default function App() {
   const handleLogout = () => {
     useAuthStore.getState().logout()
     window.scrollTo({ top: 0 })
+    if (typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')) {
+      window.location.assign('/')
+    }
   }
 
-  // Signed-in users land on the dashboard instead of the marketing page.
-  if (user) {
-    return (
-      <QueryClientProvider client={queryClient}>
-        <DashboardPage onLogout={handleLogout} />
-      </QueryClientProvider>
-    )
-  }
+  const isAdminRoute = typeof window !== 'undefined' && window.location.pathname.startsWith('/admin')
 
   return (
     <QueryClientProvider client={queryClient}>
-      <HomePage />
+      {isAdminRoute ? (
+        <AdminPage onLogout={handleLogout} />
+      ) : user ? (
+        <DashboardPage onLogout={handleLogout} />
+      ) : (
+        <HomePage />
+      )}
     </QueryClientProvider>
   )
 }

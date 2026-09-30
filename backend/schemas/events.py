@@ -1,57 +1,43 @@
-"""Pydantic schemas for the events CRUD endpoints."""
+"""Typed API contracts for community events."""
 
-from datetime import date, datetime, time
+from datetime import date as DateType
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
-
-
-class EventCreate(BaseModel):
-    """Request body for creating or updating an event."""
-
-    company_organization: str = Field(
-        description="Name of the organising company or community."
-    )
-    event_type: str = Field(
-        description="Type of event, e.g. hackathon, meetup, conference."
-    )
-    description: str = Field(description="Event description.")
-    mode: str = Field(description="Event mode: online, in-person, or hybrid.")
-    location: str | None = Field(
-        default=None,
-        description="Physical location (required for in-person / hybrid events).",
-    )
-    event_date: date = Field(description="Date of the event.")
-    event_time: time = Field(description="Start time of the event.")
-    application_url: HttpUrl = Field(
-        description="Registration or application URL."
-    )
-
-    @model_validator(mode="after")
-    def location_required_for_in_person(self) -> "EventCreate":
-        if (
-            self.mode.lower() in ("in-person", "in_person", "hybrid")
-            and not self.location
-        ):
-            raise ValueError(
-                "location is required for in-person or hybrid events"
-            )
-        return self
+from pydantic import BaseModel, Field
 
 
-class EventResponse(BaseModel):
-    """Public representation of an event."""
+EventMode = Literal["Online", "Offline"]
 
-    model_config = ConfigDict(from_attributes=True)
 
-    id: int = Field(description="Internal database ID.")
-    company_organization: str = Field(
-        description="Organising company or community."
-    )
-    event_type: str = Field(description="Type of event.")
-    description: str = Field(description="Event description.")
-    mode: str = Field(description="Event mode.")
-    location: str | None = Field(default=None, description="Physical location.")
-    event_date: date = Field(description="Date of the event.")
-    event_time: time = Field(description="Start time of the event.")
-    application_url: str = Field(description="Registration URL.")
-    created_at: datetime = Field(description="Record creation timestamp.")
+class EventCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200, description="Event name.")
+    type: str = Field(min_length=1, max_length=50, description="Event category.")
+    date: DateType = Field(description="Event date.")
+    time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$", description="Event time in HH:MM format.")
+    mode: EventMode = Field(description="Whether the event is online or offline.")
+    location: str = Field(default="", max_length=255, description="Venue for offline events.")
+    organizer: str = Field(min_length=1, max_length=150, description="Event organizer.")
+
+
+class EventItem(BaseModel):
+    id: int = Field(description="Event identifier.")
+    name: str = Field(description="Event name.")
+    type: str = Field(description="Event category.")
+    date: DateType = Field(description="Event date.")
+    time: str = Field(description="Event time in HH:MM format.")
+    mode: EventMode = Field(description="Whether the event is online or offline.")
+    location: str = Field(description="Venue for offline events.")
+    organizer: str = Field(description="Event organizer.")
+
+
+class EventListResponse(BaseModel):
+    events: list[EventItem] = Field(description="Published community events.")
+
+
+class DeleteEndedEventsResponse(BaseModel):
+    deleted: int = Field(description="Number of ended events deleted.")
+
+
+# Backward compatibility aliases
+EventCreate = EventCreateRequest
+EventResponse = EventItem
