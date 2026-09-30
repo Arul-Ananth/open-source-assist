@@ -1,4 +1,5 @@
 export type EventMode = 'Online' | 'Offline'
+export type EventSort = 'date-asc' | 'date-desc' | 'online-first' | 'offline-first'
 
 export interface EventItem {
   id: number
@@ -22,3 +23,16 @@ export interface EventInput {
   location: string
   applicationUrl: string
 }
+
+export type EventDraft = EventInput
+
+export const EVENT_TYPES = [
+  'Hackathon',
+  'Workshop',
+  'Meetup',
+  'Conference',
+  'Webinar',
+  'Coding Contest',
+  'Open Source Program',
+  'Other',
+] as const

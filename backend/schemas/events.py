@@ -1,57 +1,72 @@
-"""Pydantic schemas for the events CRUD endpoints."""
+"""Typed API contracts for community events."""
 
-from datetime import date, datetime, time
+from datetime import date as DateType
+from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
+from pydantic import BaseModel, Field, model_validator
 
-
-class EventCreate(BaseModel):
-    """Request body for creating or updating an event."""
-
-    company_organization: str = Field(
-        description="Name of the organising company or community."
-    )
-    event_type: str = Field(
-        description="Type of event, e.g. hackathon, meetup, conference."
-    )
-    description: str = Field(description="Event description.")
-    mode: str = Field(description="Event mode: online, in-person, or hybrid.")
-    location: str | None = Field(
-        default=None,
-        description="Physical location (required for in-person / hybrid events).",
-    )
-    event_date: date = Field(description="Date of the event.")
-    event_time: time = Field(description="Start time of the event.")
-    application_url: HttpUrl = Field(
-        description="Registration or application URL."
-    )
-
-    @model_validator(mode="after")
-    def location_required_for_in_person(self) -> "EventCreate":
-        if (
-            self.mode.lower() in ("in-person", "in_person", "hybrid")
-            and not self.location
-        ):
-            raise ValueError(
-                "location is required for in-person or hybrid events"
-            )
-        return self
+EventMode = Literal["Online", "Offline"]
 
 
-class EventResponse(BaseModel):
-    """Public representation of an event."""
+class EventCreateRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=200, description="Event name.")
+    type: str = Field(min_length=1, max_length=50, description="Event category.")
+    date: DateType = Field(description="Event date.")
+    time: str = Field(pattern=r"^([01]\d|2[0-3]):[0-5]\d$", description="Event time in HH:MM format.")
+    mode: EventMode = Field(description="Whether the event is online or offline.")
+    location: str = Field(default="", max_length=255, description="Venue for offline events.")
+    organizer: str = Field(min_length=1, max_length=150, description="Event organizer.")
+    application_url: str = Field(default="", max_length=1000, description="Registration URL.")
 
-    model_config = ConfigDict(from_attributes=True)
+    @model_validator(mode="before")
+    @classmethod
+    def populate_aliases(cls, data: object) -> object:
+        if isinstance(data, dict):
+            if "applicationUrl" in data and "application_url" not in data:
+                data["application_url"] = data["applicationUrl"]
+            if "event_type" in data and "type" not in data:
+                data["type"] = data["event_type"]
+            if "company_organization" in data and "organizer" not in data:
+                data["organizer"] = data["company_organization"]
+            if "event_date" in data and "date" not in data:
+                data["date"] = data["event_date"]
+            if "event_time" in data and "time" not in data:
+                data["time"] = data["event_time"]
+            if "description" in data and "name" not in data:
+                data["name"] = data["description"]
+        return data
 
-    id: int = Field(description="Internal database ID.")
-    company_organization: str = Field(
-        description="Organising company or community."
-    )
-    event_type: str = Field(description="Type of event.")
-    description: str = Field(description="Event description.")
-    mode: str = Field(description="Event mode.")
-    location: str | None = Field(default=None, description="Physical location.")
-    event_date: date = Field(description="Date of the event.")
-    event_time: time = Field(description="Start time of the event.")
-    application_url: str = Field(description="Registration URL.")
-    created_at: datetime = Field(description="Record creation timestamp.")
+
+class EventItem(BaseModel):
+    id: int = Field(description="Event identifier.")
+    name: str = Field(default="Community Event", description="Event name.")
+    type: str = Field(default="Meetup", description="Event category.")
+    date: DateType = Field(description="Event date.")
+    time: str = Field(default="10:00", description="Event time in HH:MM format.")
+    mode: EventMode = Field(default="Online", description="Whether the event is online or offline.")
+    location: str = Field(default="", description="Venue for offline events.")
+    organizer: str = Field(default="Community", description="Event organizer.")
+    application_url: str | None = Field(default="", description="Registration URL.")
+    applicationUrl: str | None = Field(default="", description="Registration URL alias.")
+
+    @model_validator(mode="before")
+    @classmethod
+    def normalize_fields(cls, data: object) -> object:
+        if isinstance(data, dict):
+            url = data.get("application_url") or data.get("applicationUrl") or ""
+            data["application_url"] = url
+            data["applicationUrl"] = url
+        return data
+
+
+class EventListResponse(BaseModel):
+    events: list[EventItem] = Field(description="Published community events.")
+
+
+class DeleteEndedEventsResponse(BaseModel):
+    deleted: int = Field(description="Number of ended events deleted.")
+
+
+# Backward compatibility aliases
+EventCreate = EventCreateRequest
+EventResponse = EventItem

@@ -2,7 +2,13 @@ import { useEffect, useState } from 'react'
 import { RefreshCw, Search, Shield, ShieldOff, UserMinus, UserPlus, UserRoundX } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore, type UserRole, type AccountStatus } from '@/lib/auth-store'
-import { deleteAdminUser, getAdminUsers, updateAdminUser, type AdminUser } from '@/lib/admin-api'
+import {
+  AdminApiUnavailableError,
+  deleteAdminUser,
+  getAdminUsers,
+  updateAdminUser,
+  type AdminUser,
+} from '@/lib/admin-api'
 
 const statusCopy: Record<AccountStatus, string> = {
   active: 'Active',
@@ -29,7 +35,13 @@ export default function AdminUsersSection() {
       setUsers(data.users)
       setTotal(data.total)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not load users')
+      setError(
+        err instanceof AdminApiUnavailableError
+          ? 'The administrator API is unavailable. Start the backend and check the frontend proxy.'
+          : err instanceof Error
+            ? err.message
+            : 'Could not load users',
+      )
     } finally {
       setLoading(false)
     }
@@ -37,7 +49,7 @@ export default function AdminUsersSection() {
 
   useEffect(() => {
     void loadUsers()
-  }, [])
+  }, [token])
 
   const update = async (user: AdminUser, patch: { role?: UserRole; account_status?: AccountStatus }) => {
     if (!token) return
@@ -175,12 +187,19 @@ export default function AdminUsersSection() {
                     </td>
                     <td className="px-4 py-4 align-top">
                       <div className="flex flex-wrap justify-end gap-2">
-                        {user.role !== 'admin' && (
+                        {user.role !== 'admin' ? (
                           <ActionButton
                             label="Promote"
                             icon={UserPlus}
                             disabled={busy || isSelf}
                             onClick={() => void update(user, { role: 'admin' })}
+                          />
+                        ) : (
+                          <ActionButton
+                            label="Demote"
+                            icon={Shield}
+                            disabled={busy || isSelf}
+                            onClick={() => void update(user, { role: 'user' })}
                           />
                         )}
                         {user.account_status === 'active' ? (

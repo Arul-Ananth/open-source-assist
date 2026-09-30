@@ -46,15 +46,15 @@ async def get_optional_current_user(
         return None
 
     user = await db.scalar(select(User).where(User.id == user_id))
-    if user is None or not user.is_active or user.account_status != "active":
+    if user is None or not user.is_active or getattr(user, "account_status", "active") != "active":
         return None
 
     return {
         "user_id": str(user.id),
         "email": user.email,
         "username": user.username,
-        "role": user.role,
-        "account_status": user.account_status,
+        "role": getattr(user, "role", "user"),
+        "account_status": getattr(user, "account_status", "active"),
         "token": token,
     }
 
