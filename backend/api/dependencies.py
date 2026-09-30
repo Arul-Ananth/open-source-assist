@@ -14,7 +14,6 @@ from backend.models.user_model import User
 from backend.services.qdrant_service import QdrantService, qdrant_service
 from backend.services.search_service import SearchService, search_service
 
-# Enables Swagger UI "Authorize" dialog while keeping token submission optional for guest routes
 bearer_security = HTTPBearer(auto_error=False)
 
 
@@ -46,14 +45,16 @@ async def get_optional_current_user(
     except (ValueError, TypeError):
         return None
 
-    user = await db.scalar(select(User).where(User.id == user_id, User.is_active.is_(True)))
-    if user is None:
+    user = await db.scalar(select(User).where(User.id == user_id))
+    if user is None or not user.is_active or user.account_status != "active":
         return None
 
     return {
         "user_id": str(user.id),
         "email": user.email,
         "username": user.username,
+        "role": user.role,
+        "account_status": user.account_status,
         "token": token,
     }
 
@@ -67,5 +68,23 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials or user inactive",
             headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
+
+async def get_current_admin(
+    user: Annotated[dict[str, Any] | None, Depends(get_optional_current_user)],
+) -> dict[str, Any]:
+    """Require a valid bearer token belonging to an administrator."""
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Could not validate credentials or user inactive",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if user.get("role") != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Administrator access required",
         )
     return user

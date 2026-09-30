@@ -11,6 +11,7 @@ if sys.platform == "win32":
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from backend.api.admin import router as admin_router
 from backend.api.auth import router as auth_router
 from backend.api.routes.chatbot import router as chatbot_router
 from backend.api.routes.learning import router as learning_router
@@ -83,6 +84,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router, prefix=settings.API_V1_PREFIX)
+app.include_router(admin_router, prefix=settings.API_V1_PREFIX)
 app.include_router(search_router, prefix=settings.API_V1_PREFIX)
 app.include_router(learning_router, prefix=settings.API_V1_PREFIX)
 app.include_router(chatbot_router, prefix=settings.API_V1_PREFIX)

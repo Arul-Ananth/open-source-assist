@@ -9,6 +9,7 @@ from backend.schemas.events import EventCreate
 
 async def create_event(session: AsyncSession, payload: EventCreate) -> Event:
     event = Event(
+        name=(payload.name or payload.description[:255]).strip(),
         company_organization=payload.company_organization,
         event_type=payload.event_type,
         description=payload.description,
@@ -55,6 +56,7 @@ async def update_event(
     event = await get_event(session, event_id)
     if not event:
         return None
+    event.name = (payload.name or payload.description[:255]).strip()
     event.company_organization = payload.company_organization
     event.event_type = payload.event_type
     event.description = payload.description

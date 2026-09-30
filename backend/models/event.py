@@ -12,6 +12,9 @@ class Event(Base):
     __tablename__ = "events"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(
+        String(255), nullable=False, server_default="Untitled Event", index=True
+    )
     company_organization: Mapped[str] = mapped_column(
         String(255), nullable=False, index=True
     )
