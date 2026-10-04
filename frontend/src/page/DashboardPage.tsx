@@ -18,6 +18,7 @@ import {
   Minus,
   BookMarked,
   Heart,
+  Shield,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
@@ -284,6 +285,15 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
             </button>
           )
         })}
+        {user?.role === 'admin' && (
+          <a
+            href="/admin"
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-accent-text transition-colors duration-150 hover:bg-surface hover:text-foreground"
+          >
+            <Shield className="size-4 shrink-0 text-accent-text" aria-hidden="true" />
+            Administration
+          </a>
+        )}
       </nav>
 
       {/* Footer: logout */}

@@ -12,14 +12,15 @@ foreach ($port in $ports) {
     if ($connections) {
         $pids = $connections | Select-Object -ExpandProperty OwningProcess -Unique
         foreach ($procId in $pids) {
+            if ($procId -eq 0) { continue }
             try {
                 $p = Get-Process -Id $procId -ErrorAction SilentlyContinue
-                if ($p) {
-                    Write-Host "Stopping process $($p.ProcessName) (PID: $procId) on port $port..." -ForegroundColor Gray
-                    Stop-Process -Id $procId -Force -ErrorAction SilentlyContinue
-                    Write-Host "[OK] Stopped PID $procId" -ForegroundColor Green
-                    $found = $true
-                }
+                $procName = if ($p) { $p.ProcessName } else { "Unknown" }
+                Write-Host "Stopping process tree for $procName (PID: $procId) on port $port..." -ForegroundColor Gray
+                # Use taskkill /T /F to terminate process and any spawned child processes cleanly
+                & taskkill.exe /PID $procId /T /F 2>$null | Out-Null
+                Write-Host "[OK] Terminated PID $procId and child processes." -ForegroundColor Green
+                $found = $true
             } catch {
                 Write-Host "Could not stop PID $procId : $_" -ForegroundColor Red
             }

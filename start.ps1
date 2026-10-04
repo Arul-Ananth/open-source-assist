@@ -46,15 +46,43 @@ if (-not (Test-Path $EnvFile)) {
     }
 }
 
+# Sync Python virtual environment dependencies
+Write-Host "Syncing Python dependencies with uv..." -ForegroundColor Gray
+try {
+    uv sync | Out-Null
+    Write-Host "[OK] Python dependencies synced." -ForegroundColor Green
+} catch {
+    Write-Host "Warning: 'uv sync' reported an issue. Continuing with existing virtual environment..." -ForegroundColor Yellow
+}
+
 # 2. Check Database and Run Migrations
 Write-Host "[2/5] Checking database and applying migrations..." -ForegroundColor Yellow
-$pgService = Get-Service -Name "postgresql*" -ErrorAction SilentlyContinue | Select-Object -First 1
-if ($pgService -and $pgService.Status -ne "Running") {
-    Write-Host "Starting PostgreSQL service ($($pgService.Name))..." -ForegroundColor Gray
-    try {
-        Start-Service -Name $pgService.Name
-    } catch {
-        Write-Host "Could not auto-start PostgreSQL service. Ensure PostgreSQL is running on port 5432." -ForegroundColor Yellow
+
+$isRemoteDb = $false
+$postgresHost = "localhost"
+if (Test-Path $EnvFile) {
+    Get-Content $EnvFile | ForEach-Object {
+        $line = $_.Trim()
+        if ($line -match "^POSTGRES_HOST\s*=\s*(.+)$") {
+            $postgresHost = $matches[1].Trim().Trim('"').Trim("'")
+            if ($postgresHost -and $postgresHost -ne "localhost" -and $postgresHost -ne "127.0.0.1") {
+                $isRemoteDb = $true
+            }
+        }
+    }
+}
+
+if ($isRemoteDb) {
+    Write-Host "Configured for remote PostgreSQL host: $postgresHost (skipping local service check)." -ForegroundColor Cyan
+} else {
+    $pgService = Get-Service -Name "postgresql*" -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($pgService -and $pgService.Status -ne "Running") {
+        Write-Host "Starting local PostgreSQL service ($($pgService.Name))..." -ForegroundColor Gray
+        try {
+            Start-Service -Name $pgService.Name
+        } catch {
+            Write-Host "Could not auto-start PostgreSQL service. Ensure PostgreSQL is running on port 5432." -ForegroundColor Yellow
+        }
     }
 }
 
@@ -101,7 +129,7 @@ Start-Process "cmd.exe" -ArgumentList "/c start `"OpenSource Assist - Frontend (
 
 Write-Host ""
 Write-Host "Waiting for backend service to become ready..." -ForegroundColor Gray
-$maxRetries = 20
+$maxRetries = 30
 $retries = 0
 $backendReady = $false
 
