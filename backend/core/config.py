@@ -190,5 +190,20 @@ class Settings(BaseSettings):
         default="github_sync_weekly", description="DAG ID triggered by the manual sync control.",
     )
 
+    # GitHub OAuth Web Application Settings
+    GITHUB_CLIENT_ID: str | None = Field(
+        default=None, description="GitHub OAuth App Client ID for user login."
+    )
+    GITHUB_CLIENT_SECRET: str | None = Field(
+        default=None, description="GitHub OAuth App Client Secret for user login."
+    )
+    GITHUB_REDIRECT_URI: str | None = Field(
+        default=None, description="Optional explicit GitHub OAuth callback URL."
+    )
+    FRONTEND_URL: str = Field(
+        default="http://localhost:5173", description="Frontend application base URL for OAuth redirects."
+    )
+
 
 settings = Settings()
+

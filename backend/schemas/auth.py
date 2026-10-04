@@ -105,5 +105,24 @@ class UserProfileResponse(BaseModel):
     id: str = Field(description="User unique identifier UUID.")
     email: EmailStr = Field(description="User account email address.")
     username: str | None = Field(default=None, description="Account display username.")
+    github_username: str | None = Field(default=None, description="Linked GitHub account username.")
+    skill_level: str | None = Field(default=None, description="Assessed technical skill level.")
+    user_context: str | None = Field(default=None, description="Synthesized developer context.")
     role: UserRole = Field(default="user", description="Account authorization role.")
     account_status: AccountStatus = Field(default="active", description="Account status.")
+
+
+class GitHubCodeRequest(BaseModel):
+    """Payload to exchange GitHub authorization code for JWT token."""
+
+    code: str = Field(description="GitHub OAuth authorization code.")
+    redirect_uri: str | None = Field(default=None, description="Optional custom redirect URI.")
+
+
+class GitHubAuthUrlResponse(BaseModel):
+    """Response payload containing GitHub OAuth authorization URL."""
+
+    configured: bool = Field(description="Whether GitHub OAuth credentials are configured.")
+    url: str | None = Field(default=None, description="GitHub OAuth authorization URL.")
+    has_pat: bool = Field(default=False, description="Whether server has fallback PAT configured for dev login.")
+
