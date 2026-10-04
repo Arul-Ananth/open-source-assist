@@ -34,6 +34,7 @@ interface AuthState {
   loginWithToken: (token: string, partialUser?: Partial<User>) => Promise<User>
   loginWithConnectedGitHub: () => Promise<User>
   getGitHubOAuthUrl: () => Promise<{ configured: boolean; url: string | null; has_pat: boolean }>
+  updateUser: (partial: Partial<User>) => void
   logout: () => void
 }
 
@@ -121,9 +122,17 @@ async function fetchProfile(accessToken: string, fallback: User): Promise<User> 
   }
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: loadUser(),
   token: loadToken(),
+
+  updateUser: (partial: Partial<User>) => {
+    const current = get().user
+    if (!current) return
+    const updated: User = { ...current, ...partial }
+    persistSession(updated, get().token)
+    set({ user: updated })
+  },
 
   login: async (email, password) => {
     const res = await fetch('/api/v1/auth/login', {
