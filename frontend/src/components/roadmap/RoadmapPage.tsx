@@ -362,7 +362,10 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
           />
 
           {/* Skills */}
-          <SkillAssessmentPanel skills={data.skills} />
+          <SkillAssessmentPanel
+            skills={data.skills}
+            username={analyzedUser || data.user.login}
+          />
 
           {/* Timeline */}
           <RoadmapTimeline milestones={data.milestones} />
