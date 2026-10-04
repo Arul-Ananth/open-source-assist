@@ -232,9 +232,89 @@ This document tracks all FastAPI endpoint contracts, request payloads, and respo
       "What are the best practices for unit testing this async handler?"
     ],
     "duration_ms": 115.4,
+  ---
+
+## [v0.4.0] - 2026-09-30: GitHub-Grounded Skill Assessment & User Context Synthesis
+
+### 10. Generate Skill Assessment Questions
+* **Endpoint**: `POST /api/v1/assessment/generate`
+* **Status**: `200 OK`
+* **Description**: Dynamically generates Multiple Choice Questions (MCQs) and Subjective questions grounded in the user's GitHub projects and tech stack.
+* **Request Body** (`GenerateAssessmentRequest`):
+  ```json
+  {
+    "github_username": "octocat",
+    "num_mcqs": 3,
+    "num_subjective": 2
+  }
+  ```
+* **Response Body** (`GenerateAssessmentResponse`):
+  ```json
+  {
+    "assessment_id": "assess_a1b2c3d4e5f6",
+    "github_username": "octocat",
+    "questions": [
+      {
+        "question_id": "mcq_1",
+        "question_type": "mcq",
+        "question_text": "In your project 'hello-world', what is the primary benefit of non-blocking async I/O?",
+        "related_project": "hello-world",
+        "options": [
+          { "option_id": "A", "option_text": "Improves non-blocking concurrency and response throughput." }
+        ],
+        "skill_domain": "Python Architecture",
+        "difficulty": "intermediate"
+      }
+    ],
+    "generated_at": "2026-09-30T10:00:00Z"
+  }
+  ```
+
+### 11. Evaluate Assessment & Synthesize User Context
+* **Endpoint**: `POST /api/v1/assessment/evaluate`
+* **Status**: `200 OK`
+* **Description**: Evaluates submitted MCQ and subjective answers using LiteLLM (Gemini), calculates score breakdown, synthesizes a concise `user_context` line, and updates the `User` database record.
+* **Request Body** (`EvaluateAssessmentRequest`):
+  ```json
+  {
+    "assessment_id": "assess_a1b2c3d4e5f6",
+    "github_username": "octocat",
+    "answers": [
+      {
+        "question_id": "mcq_1",
+        "question_type": "mcq",
+        "user_answer": "A"
+      },
+      {
+        "question_id": "subj_1",
+        "question_type": "subjective",
+        "user_answer": "We isolate exception boundaries using custom middleware and Docker secrets."
+      }
+    ]
+  }
+  ```
+* **Response Body** (`EvaluateAssessmentResponse`):
+  ```json
+  {
+    "assessment_id": "assess_a1b2c3d4e5f6",
+    "overall_score_pct": 92.5,
+    "assessed_skill_level": "intermediate",
+    "generated_user_context": "Intermediate Python & FastAPI developer with solid understanding of async microservice boundaries and Docker deployment.",
+    "evaluations": [
+      {
+        "question_id": "mcq_1",
+        "question_type": "mcq",
+        "score_pct": 100.0,
+        "feedback": "Correct selection!",
+        "correct_answer_summary": "Option A"
+      }
+    ],
+    "user_updated": true,
+    "duration_ms": 154.2,
     "model_used": "gemini-3.5-flash"
   }
   ```
+
 
 
 

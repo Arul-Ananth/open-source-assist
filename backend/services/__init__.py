@@ -11,6 +11,8 @@ from backend.services.scoring_strategy import (
 from backend.services.search_service import SearchService, search_service
 from backend.services.learning_agent import LearningAgentService, learning_agent_service
 from backend.services.chatbot_agent import ChatbotAgentService, chatbot_agent_service
+from backend.services.github_service import GitHubService, github_service
+from backend.services.assessment_service import AssessmentService, assessment_service
 from backend.services.github_client import GitHubClient, GitHubAPIError
 from backend.services import github_sync_service
 from backend.services import project_service
@@ -36,6 +38,10 @@ __all__ = [
     "learning_agent_service",
     "ChatbotAgentService",
     "chatbot_agent_service",
+    "GitHubService",
+    "github_service",
+    "AssessmentService",
+    "assessment_service",
     "GitHubClient",
     "GitHubAPIError",
     "github_sync_service",
