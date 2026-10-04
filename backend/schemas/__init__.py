@@ -38,6 +38,11 @@ from backend.schemas.chatbot import (
     StructuredChatbotOutput,
     ChatbotResponse,
 )
+from backend.schemas.docs import (
+    DocCategoryResponse,
+    DocumentItemResponse,
+    DocsCatalogResponse,
+)
 from backend.schemas.assessment import (
     AssessmentQuestionType,
     MCQOption,
@@ -150,4 +155,8 @@ __all__ = [
     "ProgressResponse",
     "ProgressUpdate",
     "RoadmapProgressSummary",
+    "DocCategoryResponse",
+    "DocumentItemResponse",
+    "DocsCatalogResponse",
 ]
+
