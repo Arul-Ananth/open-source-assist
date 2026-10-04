@@ -25,6 +25,7 @@ class User(Base):
     email: Mapped[str] = mapped_column(String(320), unique=True, index=True, nullable=False)
     username: Mapped[str | None] = mapped_column(String(50), nullable=True, index=True)
     github_username: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    github_access_token: Mapped[str | None] = mapped_column(String(255), nullable=True)
     user_context: Mapped[str | None] = mapped_column(String(2000), nullable=True)
     skill_level: Mapped[str | None] = mapped_column(String(50), nullable=True)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)

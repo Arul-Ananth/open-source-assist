@@ -36,5 +36,6 @@ async def init_db() -> None:
         await conn.run_sync(Base.metadata.create_all)
         if conn.dialect.name == "postgresql":
             await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS github_username VARCHAR(100);"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS github_access_token VARCHAR(255);"))
             await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS user_context VARCHAR(2000);"))
             await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_level VARCHAR(50);"))

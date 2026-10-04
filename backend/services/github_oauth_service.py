@@ -140,7 +140,7 @@ class GitHubOAuthService:
 
     @classmethod
     async def authenticate_or_register(
-        cls, db: AsyncSession, profile: dict[str, Any]
+        cls, db: AsyncSession, profile: dict[str, Any], access_token: str | None = None
     ) -> tuple[User, str]:
         """Find or register user from GitHub profile and issue JWT token."""
         normalized_email = profile["email"].strip().lower()
@@ -154,6 +154,7 @@ class GitHubOAuthService:
                 email=normalized_email,
                 username=profile.get("login"),
                 github_username=profile.get("login"),
+                github_access_token=access_token,
                 password_hash=f"oauth:github:{uuid.uuid4().hex}",
                 is_active=True,
             )
@@ -162,13 +163,15 @@ class GitHubOAuthService:
             await db.refresh(user)
             logger.info("Created new user %s via GitHub OAuth", normalized_email)
         else:
-            # Existing account: ensure active and username populated
+            # Existing account: ensure active, username and token populated
             if not user.is_active:
                 user.is_active = True
             if not user.username and profile.get("login"):
                 user.username = profile.get("login")
             if not getattr(user, "github_username", None) and profile.get("login"):
                 user.github_username = profile.get("login")
+            if access_token:
+                user.github_access_token = access_token
             await db.commit()
             await db.refresh(user)
             logger.info("Authenticated existing user %s via GitHub OAuth", normalized_email)

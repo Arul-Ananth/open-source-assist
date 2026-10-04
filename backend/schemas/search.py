@@ -200,4 +200,9 @@ class RepoSearchResponse(BaseModel):
         description="Total execution time for search and ranking in milliseconds.",
         examples=[12.45],
     )
+    search_mode: str = Field(
+        default="semantic",
+        description="Search mode executed: 'semantic' (pure Qdrant vector search) or 'hybrid' (Qdrant + GitHub Live discovery with user token).",
+        examples=["hybrid"],
+    )
 

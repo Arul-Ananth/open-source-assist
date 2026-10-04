@@ -7,7 +7,7 @@ contained in this file.
 
 from typing import Any
 
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, BackgroundTasks, Depends, status
 
 from backend.api.dependencies import get_optional_current_user, get_search_service
 from backend.schemas.ingest import BatchRepoIngestRequest, BatchRepoIngestResponse
@@ -21,21 +21,28 @@ router = APIRouter(prefix="", tags=["Search"])
     "/search",
     response_model=RepoSearchResponse,
     status_code=status.HTTP_200_OK,
-    summary="Semantic Repository Search",
+    summary="Semantic and Hybrid Repository Search",
     description=(
         "Performs high-performance semantic search over indexed open-source repositories "
-        "using Qdrant vector database. Combines dense semantic similarity with "
-        "logarithmically normalized popularity scores using the Multiplicative Gate strategy. "
+        "using Qdrant vector database and optionally blends live GitHub discovery when the "
+        "calling user is authenticated with a GitHub OAuth token. Combines dense semantic "
+        "similarity with logarithmically normalized popularity scores using the Multiplicative Gate strategy. "
         "Supports filtering by language, minimum stars, license, and topic tags."
     ),
 )
 async def search_repositories(
     payload: RepoSearchRequest,
+    background_tasks: BackgroundTasks,
     service: SearchService = Depends(get_search_service),
     current_user: dict[str, Any] | None = Depends(get_optional_current_user),
 ) -> RepoSearchResponse:
-    """Execute semantic search against open-source repositories."""
-    return await service.search_repositories(request=payload)
+    """Execute semantic or hybrid search against open-source repositories."""
+    token = current_user.get("github_access_token") if current_user else None
+    return await service.search_repositories(
+        request=payload,
+        github_access_token=token,
+        background_tasks=background_tasks,
+    )
 
 
 @router.post(
