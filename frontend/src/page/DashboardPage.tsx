@@ -199,7 +199,7 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
         {/* Content */}
         <main className="mx-auto w-full max-w-[1200px] flex-1 p-4 sm:p-6">
           {section === 'overview' ? (
-            <OverviewSection onNavigate={(id) => navigate(id as SectionId)} />
+            <OverviewSection onNavigate={(id: string) => navigate(id as SectionId)} />
           ) : section === 'learning' ? (
             <LearningSection />
           ) : section === 'roadmap' ? (
