@@ -121,4 +121,6 @@ async def get_me(
         id=current_user["user_id"],
         email=current_user["email"],
         username=current_user.get("username"),
+        role=current_user.get("role", "user"),
+        account_status=current_user.get("account_status", "active"),
     )

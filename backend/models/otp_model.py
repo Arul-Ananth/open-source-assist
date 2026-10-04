@@ -4,8 +4,9 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Integer, String, UniqueConstraint, func
+from sqlalchemy import JSON, DateTime, Integer, String, UniqueConstraint, delete, func
 from sqlalchemy import Enum as SqlEnum
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Mapped, mapped_column
 
 from backend.core.database import Base
@@ -36,3 +37,12 @@ class OTP(Base):
     __table_args__ = (
         UniqueConstraint("email", "purpose", name="uq_otps_email_purpose"),
     )
+
+    @classmethod
+    async def purge_expired(cls, session: AsyncSession) -> int:
+        """Delete all OTP rows whose expires_at has passed. Returns count deleted."""
+        result = await session.execute(
+            delete(cls).where(cls.expires_at < func.now())
+        )
+        await session.commit()
+        return result.rowcount

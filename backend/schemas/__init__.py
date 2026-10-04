@@ -38,6 +38,41 @@ from backend.schemas.chatbot import (
     StructuredChatbotOutput,
     ChatbotResponse,
 )
+from backend.schemas.github import (
+    ProjectResponse,
+    ContributorResponse,
+    SyncResponse,
+    ContributorSyncResponse,
+)
+from backend.schemas.events import (
+    EventCreate,
+    EventResponse,
+)
+from backend.schemas.users import (
+    UserCreate,
+    UserLogin,
+    UserLoginResponse,
+    UserResponse,
+    UserUpdate,
+)
+from backend.schemas.otp import (
+    OTPRequest,
+    OTPResponse,
+    OTPVerify,
+)
+from backend.schemas.roadmaps import (
+    RoadmapCreate,
+    RoadmapListResponse,
+    RoadmapResponse,
+    RoadmapUpdate,
+    StepCreate,
+    StepResponse,
+    StepUpdate,
+    ProgressCreate,
+    ProgressResponse,
+    ProgressUpdate,
+    RoadmapProgressSummary,
+)
 
 __all__ = [
     "AuthResponse",
@@ -68,4 +103,29 @@ __all__ = [
     "ChatbotRequest",
     "StructuredChatbotOutput",
     "ChatbotResponse",
+    "ProjectResponse",
+    "ContributorResponse",
+    "SyncResponse",
+    "ContributorSyncResponse",
+    "EventCreate",
+    "EventResponse",
+    "UserCreate",
+    "UserLogin",
+    "UserLoginResponse",
+    "UserResponse",
+    "UserUpdate",
+    "OTPRequest",
+    "OTPResponse",
+    "OTPVerify",
+    "RoadmapCreate",
+    "RoadmapListResponse",
+    "RoadmapResponse",
+    "RoadmapUpdate",
+    "StepCreate",
+    "StepResponse",
+    "StepUpdate",
+    "ProgressCreate",
+    "ProgressResponse",
+    "ProgressUpdate",
+    "RoadmapProgressSummary",
 ]

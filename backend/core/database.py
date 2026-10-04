@@ -25,3 +25,10 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """Yield one async SQLAlchemy session per request and close it afterward."""
     async with SessionLocal() as db:
         yield db
+
+
+async def init_db() -> None:
+    """Create all ORM tables if they do not exist yet."""
+    import backend.models  # noqa: F401
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)

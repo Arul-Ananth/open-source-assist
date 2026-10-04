@@ -95,3 +95,11 @@ $RECYCLE.BIN/
 *.iws
 *.iml
 *.ipr
+
+# =========================
+# Airflow
+# =========================
+airflow.db
+airflow.cfg
+airflow-webserver.pid
+logs/

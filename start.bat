@@ -7,18 +7,20 @@ echo           Starting OpenSource Assist Platform
 echo ==========================================================
 echo.
 
-echo [1/4] Checking environment...
+echo [1/4] Checking environment and dependencies...
 if not exist .env (
     if exist .env.example (
         echo Creating .env from .env.example...
         copy .env.example .env >nul
     )
 )
+echo Syncing Python dependencies...
+call uv sync >nul 2>&1
 
 echo [2/4] Applying database migrations...
 call uv run alembic upgrade head
 if errorlevel 1 (
-    echo [WARNING] Database migrations failed. Ensure PostgreSQL is running on port 5432.
+    echo [WARNING] Database migrations failed. Ensure PostgreSQL is running and credentials in .env are correct.
 ) else (
     echo [OK] Database migrations up to date.
 )
