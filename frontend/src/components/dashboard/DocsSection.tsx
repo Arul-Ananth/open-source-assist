@@ -1,11 +1,21 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   BookMarked,
   BookOpenCheck,
   ExternalLink,
+  GitCommit,
+  GitFork,
+  GitPullRequest,
+  Heart,
+  LifeBuoy,
+  PenLine,
   RotateCcw,
+  Scale,
   Search,
   SlidersHorizontal,
+  Sparkles,
+  Target,
+  Trophy,
   X,
 } from 'lucide-react'
 import {
@@ -17,89 +27,74 @@ import {
   Input,
 } from '@/components/ui'
 import {
-  DOC_CATEGORIES,
-  DOCUMENTS,
-  DOCUMENTS_COUNT,
-  type DocCategoryId,
-  type DocEntry,
-} from '@/data/documents'
+  fetchDocuments,
+  type DocCategory,
+  type DocumentItem,
+} from '@/lib/docs-api'
+import { useAuthStore } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 
-/**
- * Documentation module — a searchable catalog of the real, official
- * open source & GitHub documentation. Every link opens the live docs.
- */
-
-/** Normalize text for forgiving search: lowercase, strip punctuation. */
-const normalize = (value: string) =>
-  value.toLowerCase().replace(/[^\p{L}\p{N}\s]/gu, ' ').replace(/\s+/g, ' ').trim()
-
-/** Score a document against the parsed query terms. Higher = better match. */
-function scoreDoc(doc: DocEntry, terms: string[], category: DocCategoryId): number {
-  const title = normalize(doc.title)
-  const desc = normalize(doc.description)
-  const source = normalize(doc.source)
-  const tags = doc.tags.map(normalize).join(' ')
-  const categoryLabel = normalize(
-    DOC_CATEGORIES.find((c) => c.id === doc.category)?.label ?? '',
-  )
-
-  let score = 0
-  for (const term of terms) {
-    if (title.includes(term)) score += 10
-    else if (title.startsWith(term)) score += 6
-    if (tags.includes(term)) score += 5
-    if (categoryLabel.includes(term)) score += 3
-    if (source.includes(term)) score += 2
-    if (desc.includes(term)) score += 1
-  }
-  if (category === doc.category) score += 4
-  return score
-}
-
-/** Split a query into terms, respecting quoted phrases. */
-function parseQuery(query: string): string[] {
-  const terms: string[] = []
-  const phraseRegex = /"([^"]+)"/g
-  let rest = query
-  let match: RegExpExecArray | null
-  while ((match = phraseRegex.exec(query)) !== null) {
-    const phrase = normalize(match[1])
-    if (phrase) terms.push(phrase)
-    rest = rest.replace(match[0], ' ')
-  }
-  terms.push(
-    ...normalize(rest)
-      .split(' ')
-      .filter((t) => t.length > 0),
-  )
-  return terms
+const CATEGORY_ICON_MAP: Record<string, typeof Target> = {
+  'getting-started': Target,
+  git: GitCommit,
+  github: GitFork,
+  'pull-requests': GitPullRequest,
+  community: Heart,
+  writing: PenLine,
+  programs: Trophy,
+  legal: Scale,
+  help: LifeBuoy,
 }
 
 export function DocsSection() {
+  const token = useAuthStore((s) => s.token)
+  const user = useAuthStore((s) => s.user)
+
+  const [categories, setCategories] = useState<DocCategory[]>([])
+  const [documents, setDocuments] = useState<DocumentItem[]>([])
+  const [totalCount, setTotalCount] = useState<number>(0)
+  const [userSkillLevel, setUserSkillLevel] = useState<string | null>(null)
+  const [isPersonalized, setIsPersonalized] = useState<boolean>(false)
+
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState('')
-  const [category, setCategory] = useState<DocCategoryId | 'all'>('all')
+  const [category, setCategory] = useState<string>('all')
 
-  const terms = useMemo(() => parseQuery(query), [query])
+  const loadDocs = useCallback(async (cat: string, searchVal: string) => {
+    try {
+      setLoading(true)
+      setError(null)
+      const data = await fetchDocuments(
+        {
+          category: cat !== 'all' ? cat : undefined,
+          query: searchVal.trim() || undefined,
+        },
+        token ?? undefined,
+      )
+      setCategories(data.categories)
+      setDocuments(data.items)
+      setTotalCount(data.total_count)
+      setUserSkillLevel(data.user_skill_level ?? user?.skill_level ?? null)
+      setIsPersonalized(data.is_personalized)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load official documentation')
+    } finally {
+      setLoading(false)
+    }
+  }, [token, user?.skill_level])
 
-  const results = useMemo(() => {
-    const trimmed = query.trim()
-    let docs = category === 'all' ? DOCUMENTS : DOCUMENTS.filter((d) => d.category === category)
+  // Initial load
+  useEffect(() => {
+    void loadDocs(category, query)
+  }, [category, loadDocs, query])
 
-    if (!trimmed) return docs
-
-    return docs
-      .map((doc) => ({ doc, score: scoreDoc(doc, terms, category === 'all' ? doc.category : category) }))
-      .filter(({ score }) => score > 0)
-      .sort((a, b) => b.score - a.score)
-      .map(({ doc }) => doc)
-  }, [query, terms, category])
-
-  const isFiltering = query.trim() !== '' || category !== 'all'
   const clearAll = () => {
     setQuery('')
     setCategory('all')
   }
+
+  const isFiltering = query.trim() !== '' || category !== 'all'
 
   return (
     <div className="animate-fade-up space-y-6">
@@ -110,19 +105,34 @@ export function DocsSection() {
           <h1 className="section-h2">Documentation</h1>
           <div className="section-underline" aria-hidden="true" />
           <p className="section-body">
-            The real, official docs for open source and GitHub — curated, categorized and
-            searchable. Every link goes straight to the source.
+            The real, official docs for open source and GitHub — curated, categorized, and tailored
+            to your skill profile. Every link goes straight to the source.
           </p>
         </div>
         <div className="flex items-center gap-1.5 rounded-lg border border-accent/30 bg-accent/5 px-4 py-3">
           <BookMarked className="size-4 text-accent-text" aria-hidden="true" />
           <p className="font-mono text-sm font-bold text-accent-text">
-            {DOCUMENTS_COUNT} docs
+            {totalCount} docs
           </p>
         </div>
       </div>
 
-      {/* Search bar */}
+      {/* Personalization Banner */}
+      {isPersonalized && userSkillLevel && (
+        <div className="flex items-center gap-3 rounded-lg border border-accent/40 bg-accent/10 px-4 py-3 text-xs text-foreground">
+          <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent">
+            <Sparkles className="size-3.5" aria-hidden="true" />
+          </span>
+          <div className="min-w-0 leading-relaxed">
+            <span className="font-semibold text-accent-text capitalize">
+              Personalized for your {userSkillLevel} profile:
+            </span>{' '}
+            Resources and guides tailored to your assessed knowledge and focus are prioritized with recommendation badges.
+          </div>
+        </div>
+      )}
+
+      {/* Search & Filters */}
       <Card className="rounded-xl">
         <CardContent className="p-4 sm:p-5">
           <div className="relative">
@@ -172,8 +182,9 @@ export function DocsSection() {
             >
               All
             </button>
-            {DOC_CATEGORIES.map((cat) => {
+            {categories.map((cat) => {
               const active = category === cat.id
+              const IconComp = CATEGORY_ICON_MAP[cat.id] ?? BookMarked
               return (
                 <button
                   key={cat.id}
@@ -187,7 +198,7 @@ export function DocsSection() {
                       : 'border-border bg-surface text-muted-foreground hover:border-accent/60 hover:text-foreground',
                   )}
                 >
-                  <cat.Icon className="size-3" aria-hidden="true" />
+                  <IconComp className="size-3" aria-hidden="true" />
                   {cat.label}
                 </button>
               )
@@ -198,8 +209,8 @@ export function DocsSection() {
           {isFiltering && (
             <div className="mt-3 flex items-center gap-2 border-t border-border pt-3 text-xs text-muted-foreground">
               <span>
-                <span className="font-semibold text-foreground">{results.length}</span>{' '}
-                {results.length === 1 ? 'document' : 'documents'}
+                <span className="font-semibold text-foreground">{documents.length}</span>{' '}
+                {documents.length === 1 ? 'document' : 'documents'}
                 {query.trim() && (
                   <>
                     {' '}matching <span className="font-mono text-accent-text">“{query.trim()}”</span>
@@ -209,7 +220,7 @@ export function DocsSection() {
                   <>
                     {' '}in{' '}
                     <span className="font-medium text-foreground">
-                      {DOC_CATEGORIES.find((c) => c.id === category)?.label}
+                      {categories.find((c) => c.id === category)?.label}
                     </span>
                   </>
                 )}
@@ -229,8 +240,29 @@ export function DocsSection() {
         </CardContent>
       </Card>
 
-      {/* Results */}
-      {results.length === 0 ? (
+      {/* Content State */}
+      {loading ? (
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="h-36 animate-pulse rounded-lg border border-border bg-surface/50 p-4"
+            />
+          ))}
+        </div>
+      ) : error ? (
+        <Card className="p-8 text-center border-destructive/30">
+          <p className="text-sm text-destructive">{error}</p>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => void loadDocs(category, query)}
+            className="mt-4 gap-1.5"
+          >
+            <RotateCcw className="size-3.5" /> Retry
+          </Button>
+        </Card>
+      ) : documents.length === 0 ? (
         <EmptyState
           icon={BookOpenCheck}
           title="No documents found"
@@ -248,20 +280,32 @@ export function DocsSection() {
         />
       ) : (
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          {results.map((doc) => {
-            const cat = DOC_CATEGORIES.find((c) => c.id === doc.category)
-            const CatIcon = cat?.Icon ?? BookMarked
+          {documents.map((doc) => {
+            const CatIcon = CATEGORY_ICON_MAP[doc.category] ?? BookMarked
+            const catObj = categories.find((c) => c.id === doc.category)
             return (
               <a
                 key={doc.url}
                 href={doc.url}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group block rounded-lg border border-border bg-background p-4 transition-all hover:-translate-y-0.5 hover:border-accent/50 hover:shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:p-5"
+                className={cn(
+                  'group block rounded-lg border p-4 transition-all hover:-translate-y-0.5 hover:shadow-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent sm:p-5',
+                  doc.is_recommended
+                    ? 'border-accent/40 bg-accent/5 hover:border-accent'
+                    : 'border-border bg-background hover:border-accent/50',
+                )}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-center gap-3">
-                    <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-border bg-surface">
+                    <span
+                      className={cn(
+                        'flex size-10 shrink-0 items-center justify-center rounded-lg border',
+                        doc.is_recommended
+                          ? 'border-accent/30 bg-accent/10'
+                          : 'border-border bg-surface',
+                      )}
+                    >
                       <CatIcon className="size-4.5 text-accent-text" aria-hidden="true" />
                     </span>
                     <div className="min-w-0">
@@ -283,11 +327,23 @@ export function DocsSection() {
                   {doc.description}
                 </p>
 
+                {doc.recommendation_reason && (
+                  <div className="mt-2.5 flex items-center gap-1.5 text-[11px] font-medium text-accent-text">
+                    <Sparkles className="size-3 shrink-0" aria-hidden="true" />
+                    <span className="truncate">{doc.recommendation_reason}</span>
+                  </div>
+                )}
+
                 <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                  {cat && (
+                  {catObj && (
                     <Badge variant="accent" className="text-[10px]">
                       <CatIcon className="mr-1 size-3" aria-hidden="true" />
-                      {cat.label}
+                      {catObj.label}
+                    </Badge>
+                  )}
+                  {doc.is_recommended && (
+                    <Badge variant="secondary" className="border-accent/40 text-[10px] font-semibold">
+                      Recommended
                     </Badge>
                   )}
                   {doc.tags.slice(0, 3).map((tag) => (

@@ -10,6 +10,9 @@ export interface User {
   role?: UserRole
   account_status?: AccountStatus
   accountStatus?: AccountStatus
+  skill_level?: string
+  user_context?: string
+  github_username?: string
   token?: string
 }
 
@@ -103,6 +106,9 @@ async function fetchProfile(accessToken: string, fallback: User): Promise<User> 
     role: profile.role === 'admin' ? 'admin' : 'user',
     account_status: status === 'suspended' || status === 'banned' ? status : 'active',
     accountStatus: status === 'suspended' || status === 'banned' ? status : 'active',
+    skill_level: profile.skill_level || fallback.skill_level,
+    user_context: profile.user_context || fallback.user_context,
+    github_username: profile.github_username || fallback.github_username,
   }
 }
 

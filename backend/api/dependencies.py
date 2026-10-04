@@ -55,6 +55,8 @@ async def get_optional_current_user(
         "username": user.username,
         "role": getattr(user, "role", "user"),
         "account_status": getattr(user, "account_status", "active"),
+        "skill_level": getattr(user, "skill_level", None),
+        "user_context": getattr(user, "user_context", None),
         "token": token,
     }
 

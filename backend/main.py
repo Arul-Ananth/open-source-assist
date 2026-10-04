@@ -16,6 +16,7 @@ from backend.api.admin import router as admin_router
 from backend.api.routes.airflow import router as airflow_router
 from backend.api.routes.assessment import router as assessment_router
 from backend.api.routes.chatbot import router as chatbot_router
+from backend.api.routes.docs import router as docs_router
 from backend.api.routes.events import router as events_router
 from backend.api.routes.forum import router as forum_router
 from backend.api.routes.github import router as github_router
@@ -92,6 +93,7 @@ app.include_router(search_router, prefix=settings.API_V1_PREFIX)
 app.include_router(learning_router, prefix=settings.API_V1_PREFIX)
 app.include_router(chatbot_router, prefix=settings.API_V1_PREFIX)
 app.include_router(assessment_router, prefix=settings.API_V1_PREFIX)
+app.include_router(docs_router, prefix=settings.API_V1_PREFIX)
 app.include_router(github_router, prefix=settings.API_V1_PREFIX)
 app.include_router(projects_router, prefix=settings.API_V1_PREFIX)
 app.include_router(events_router, prefix=settings.API_V1_PREFIX)
