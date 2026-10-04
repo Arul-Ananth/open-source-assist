@@ -230,3 +230,71 @@ async def test_search_handles_qdrant_failure_gracefully(monkeypatch: pytest.Monk
         data = resp.json()
         assert data["total"] == 0
         assert data["items"] == []
+        assert data["search_mode"] == "semantic"
+
+
+@pytest.mark.asyncio
+async def test_guest_search_mode_is_semantic() -> None:
+    """Unauthenticated guest searches run in pure semantic vector mode."""
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        resp = await client.post(
+            "/api/v1/search",
+            json={"query": "data processing pipeline", "limit": 5},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["search_mode"] == "semantic"
+
+
+@pytest.mark.asyncio
+async def test_authenticated_user_triggers_hybrid_search(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Authenticated user with github_access_token triggers hybrid search and blends GitHub live results."""
+    from backend.api.dependencies import get_optional_current_user
+    from backend.services.github_client import GitHubClient
+
+    # 1. Override user dependency with OAuth user
+    app.dependency_overrides[get_optional_current_user] = lambda: {
+        "user_id": "00000000-0000-0000-0000-000000000001",
+        "username": "oauth_user",
+        "email": "oauth@example.com",
+        "github_access_token": "gho_test_mock_token_123",
+    }
+
+    # 2. Mock GitHub client search
+    mock_gh_repo = {
+        "id": 999999,
+        "full_name": "awesome-org/brand-new-library",
+        "html_url": "https://github.com/awesome-org/brand-new-library",
+        "description": "A newly published async web library on GitHub",
+        "language": "Python",
+        "stargazers_count": 120,
+        "forks_count": 15,
+        "open_issues_count": 3,
+        "license": {"spdx_id": "MIT"},
+        "topics": ["python", "async"],
+        "pushed_at": "2026-10-04T12:00:00Z",
+    }
+
+    async def mock_github_search(*args, **kwargs):
+        return [mock_gh_repo]
+
+    monkeypatch.setattr(GitHubClient, "search_repositories_query", mock_github_search)
+
+    try:
+        transport = ASGITransport(app=app)
+        async with AsyncClient(transport=transport, base_url="http://test") as client:
+            resp = await client.post(
+                "/api/v1/search",
+                json={"query": "brand new async library", "limit": 10},
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["search_mode"] == "hybrid"
+            assert data["total"] >= 1
+            full_names = [item["full_name"] for item in data["items"]]
+            assert "awesome-org/brand-new-library" in full_names
+    finally:
+        app.dependency_overrides.pop(get_optional_current_user, None)
+
+

@@ -12,6 +12,7 @@ from backend.core.config import settings
 from backend.schemas.ingest import (
     BatchRepoIngestRequest,
     BatchRepoIngestResponse,
+    RepoIngestItem,
 )
 from backend.schemas.search import (
     RepoItem,
@@ -20,6 +21,7 @@ from backend.schemas.search import (
     RepoSearchRequest,
     RepoSearchResponse,
 )
+from backend.services.github_client import GitHubClient
 from backend.services.embedding_service import EmbeddingService, embedding_service
 from backend.services.qdrant_service import QdrantService, qdrant_service
 from backend.services.scoring_strategy import (
@@ -69,19 +71,35 @@ class SearchService:
         raw_score = numerator / denominator if denominator > 0 else 0.0
         return round(max(0.0, min(1.0, raw_score)), 4)
 
+    async def _safe_background_ingest(self, items: list[RepoIngestItem]) -> None:
+        """Asynchronously ingest newly discovered GitHub repositories into Qdrant."""
+        try:
+            if not items:
+                return
+            await self.ingest_repositories(BatchRepoIngestRequest(repositories=items))
+            logger.info("Background ingested %d discovered repositories into Qdrant", len(items))
+        except Exception as exc:
+            logger.warning("Background repository ingestion failed: %s", exc)
+
     async def search_repositories(
-        self, request: RepoSearchRequest
+        self,
+        request: RepoSearchRequest,
+        github_access_token: str | None = None,
+        background_tasks: Any | None = None,
     ) -> RepoSearchResponse:
-        """Execute semantic search with popularity reranking.
+        """Execute semantic search with popularity reranking and optional hybrid GitHub live discovery.
 
         Args:
             request: Validated search request parameters.
+            github_access_token: Optional GitHub OAuth token of authenticated user.
+            background_tasks: Optional FastAPI BackgroundTasks instance for async ingestion.
 
         Returns:
             RepoSearchResponse containing sorted repository results and metadata.
         """
         start_time = time.perf_counter()
         query_text = (request.query or "").strip()
+        search_mode = "semantic"
 
         candidate_limit = max(
             settings.CANDIDATE_SEARCH_LIMIT,
@@ -108,6 +126,23 @@ class SearchService:
             logger.warning("Qdrant search unavailable or offline: %s", exc)
             points = []
 
+        # If user is authenticated with GitHub OAuth and entered a query, fetch live candidates
+        github_items: list[dict[str, Any]] = []
+        if github_access_token and query_text:
+            search_mode = "hybrid"
+            try:
+                lang = request.filters.language if request.filters else None
+                min_stars = request.filters.min_stars if request.filters else 10
+                async with GitHubClient(token=github_access_token) as gh:
+                    github_items = await gh.search_repositories_query(
+                        query=query_text,
+                        language=lang,
+                        min_stars=min_stars,
+                        per_page=15,
+                    )
+            except Exception as exc:
+                logger.warning("Live GitHub search failed or rate-limited: %s", exc)
+
         if request.strategy:
             strategy_instance = get_scoring_strategy(request.strategy)
         elif request.popularity_weight >= 0.7:
@@ -117,8 +152,14 @@ class SearchService:
 
         # Step 3: Compute popularity score and apply scoring strategy
         scored_items: list[RepoItem] = []
+        existing_names: set[str] = set()
+
         for point in points:
             payload = point.payload or {}
+            full_name = str(payload.get("full_name", ""))
+            if full_name:
+                existing_names.add(full_name.lower())
+
             stars = int(payload.get("stars", 0))
             forks = int(payload.get("forks", 0))
 
@@ -135,7 +176,7 @@ class SearchService:
 
             item = RepoItem(
                 repo_id=int(payload.get("repo_id", point.id)),
-                full_name=str(payload.get("full_name", "")),
+                full_name=full_name,
                 html_url=str(payload.get("html_url", "")),
                 description=payload.get("description"),
                 language=payload.get("language"),
@@ -153,6 +194,75 @@ class SearchService:
                 ),
             )
             scored_items.append(item)
+
+        # Merge newly discovered live repositories from GitHub
+        new_discovered_ingest: list[RepoIngestItem] = []
+        for gh_repo in github_items:
+            full_name = gh_repo.get("full_name", "")
+            if not full_name or full_name.lower() in existing_names:
+                continue
+            existing_names.add(full_name.lower())
+
+            stars = int(gh_repo.get("stargazers_count", 0))
+            forks = int(gh_repo.get("forks_count", 0))
+            semantic_score = 0.85
+            popularity_score = self.normalize_popularity(stars, forks)
+            final_score = round(
+                strategy_instance.calculate_score(
+                    semantic_score=semantic_score,
+                    popularity_score=popularity_score,
+                    popularity_weight=request.popularity_weight,
+                ),
+                4,
+            )
+
+            license_val = (
+                (gh_repo.get("license") or {}).get("spdx_id")
+                if isinstance(gh_repo.get("license"), dict)
+                else None
+            )
+            topics_val = list(gh_repo.get("topics") or [])
+
+            live_item = RepoItem(
+                repo_id=int(gh_repo["id"]),
+                full_name=full_name,
+                html_url=str(gh_repo.get("html_url", "")),
+                description=gh_repo.get("description"),
+                language=gh_repo.get("language"),
+                stars=stars,
+                forks=forks,
+                open_issues=int(gh_repo.get("open_issues_count", 0)),
+                license=license_val,
+                topics=topics_val,
+                pushed_at=gh_repo.get("pushed_at"),
+                scores=RepoScoreBreakdown(
+                    semantic_score=semantic_score,
+                    popularity_score=popularity_score,
+                    final_score=final_score,
+                    strategy=strategy_instance.name,
+                ),
+            )
+            scored_items.append(live_item)
+
+            new_discovered_ingest.append(
+                RepoIngestItem(
+                    repo_id=int(gh_repo["id"]),
+                    full_name=full_name,
+                    html_url=str(gh_repo.get("html_url", "")),
+                    description=gh_repo.get("description"),
+                    language=gh_repo.get("language"),
+                    stars=stars,
+                    forks=forks,
+                    open_issues=int(gh_repo.get("open_issues_count", 0)),
+                    license=license_val,
+                    topics=topics_val,
+                    pushed_at=gh_repo.get("pushed_at"),
+                )
+            )
+
+        # Schedule background ingestion for discovered candidates
+        if new_discovered_ingest and background_tasks is not None:
+            background_tasks.add_task(self._safe_background_ingest, new_discovered_ingest)
 
         # Step 4: Re-rank candidates by final_score descending, tie-breaking by stars and forks
         scored_items.sort(
@@ -172,6 +282,7 @@ class SearchService:
             items=paginated_items,
             strategy=strategy_instance.name,
             duration_ms=duration_ms,
+            search_mode=search_mode,
         )
 
     async def ingest_repositories(

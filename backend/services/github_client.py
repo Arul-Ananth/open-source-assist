@@ -121,3 +121,28 @@ class GitHubClient:
 
     async def get_user(self, username: str) -> dict[str, Any]:
         return await self._get(f"/users/{username}")
+
+    async def search_repositories_query(
+        self,
+        query: str,
+        language: str | None = None,
+        min_stars: int | None = None,
+        per_page: int = 15,
+    ) -> list[dict[str, Any]]:
+        """Search GitHub repositories by freeform query and optional filters."""
+        parts = [query.strip()] if query.strip() else ["stars:>50"]
+        if language and language.strip():
+            parts.append(f"language:{language.strip()}")
+        if min_stars is not None and min_stars > 0:
+            parts.append(f"stars:>={min_stars}")
+        parts.append("archived:false")
+        q = " ".join(parts).strip()
+
+        payload = await self._get(
+            "/search/repositories",
+            q=q,
+            sort="stars",
+            order="desc",
+            per_page=min(per_page, 50),
+        )
+        return payload.get("items", []) if isinstance(payload, dict) else []

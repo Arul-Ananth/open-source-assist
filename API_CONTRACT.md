@@ -6,13 +6,16 @@ This document tracks all FastAPI endpoint contracts, request payloads, and respo
 
 ## [v0.1.0] - 2026-09-21: Semantic Search & Ingestion Endpoints
 
-### 1. Semantic Repository Search
+### 1. Semantic & Hybrid Repository Search
 * **Endpoint**: `POST /api/v1/search`
 * **Status**: `200 OK`
 * **Description**: Performs dense semantic similarity search over indexed open-source repositories using Qdrant vector database and reranks results using logarithmic popularity normalization combined with the Multiplicative Gate strategy.
+  * **Dual-Tier Search Architecture**:
+    * **OAuth Authenticated Users (`search_mode: "hybrid"`)**: If the request includes a user's GitHub OAuth Bearer token, the search engine queries both the live GitHub Search API (using the user's isolated 5,000 req/hr personal rate limit) and Qdrant in parallel. Results are merged, deduplicated, scored, and new repositories are asynchronously ingested into Qdrant via background tasks.
+    * **Guests / Non-OAuth (`search_mode: "semantic"`)**: Queries local Qdrant vectors only, protecting the system from rate limiting and ensuring zero latency overhead.
 * **Headers**:
   * `Content-Type: application/json`
-  * `Authorization: Bearer <token>` (Optional)
+  * `Authorization: Bearer <token>` (Optional - enables Hybrid search when user has linked GitHub OAuth)
 * **Request Body** (`RepoSearchRequest`):
   ```json
   {
@@ -35,6 +38,7 @@ This document tracks all FastAPI endpoint contracts, request payloads, and respo
     "total": 1,
     "limit": 20,
     "offset": 0,
+    "search_mode": "hybrid",
     "items": [
       {
         "repo_id": 89229960,

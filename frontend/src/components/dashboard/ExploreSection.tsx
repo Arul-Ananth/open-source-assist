@@ -20,6 +20,7 @@ export function ExploreSection() {
   const [languageInput, setLanguageInput] = React.useState('')
   const [popularityWeight, setPopularityWeight] = React.useState<number>(0.3)
   const [source, setSource] = React.useState<'backend' | 'github'>('backend')
+  const [activeSearchMode, setActiveSearchMode] = React.useState<'semantic' | 'hybrid'>('semantic')
   const [loading, setLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [repos, setRepos] = React.useState<FormattedRepo[]>([])
@@ -41,6 +42,9 @@ export function ExploreSection() {
             filters: trimmedLang ? { language: trimmedLang } : undefined,
             limit: 12,
           })
+          if (data.search_mode) {
+            setActiveSearchMode(data.search_mode)
+          }
 
           const formatted: FormattedRepo[] = (data.items || []).map((r) => ({
             id: r.id,
@@ -135,14 +139,20 @@ export function ExploreSection() {
         </div>
 
         {/* Source selector */}
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {source === 'backend' && activeSearchMode === 'hybrid' && (
+            <span className="inline-flex items-center gap-1 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1 font-mono text-xs font-semibold text-emerald-400">
+              <Sparkles className="size-3 text-emerald-400" />
+              ⚡ Hybrid (AI + Live GitHub)
+            </span>
+          )}
           <button
             type="button"
             onClick={() => setSource((s) => (s === 'backend' ? 'github' : 'backend'))}
             className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-surface px-3 py-1.5 font-mono text-xs text-foreground transition-colors hover:border-accent"
           >
             <Sparkles className="size-3.5 text-accent-text" />
-            Source: <span className="font-semibold text-accent-text">{source === 'backend' ? 'Semantic (Qdrant)' : 'GitHub Live'}</span>
+            Source: <span className="font-semibold text-accent-text">{source === 'backend' ? (activeSearchMode === 'hybrid' ? 'Hybrid AI' : 'Semantic (Qdrant)') : 'GitHub Live'}</span>
           </button>
         </div>
       </div>

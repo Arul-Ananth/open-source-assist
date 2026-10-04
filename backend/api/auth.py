@@ -184,7 +184,9 @@ async def github_oauth_callback(
     try:
         access_token = await GitHubOAuthService.exchange_code_for_token(code)
         profile = await GitHubOAuthService.fetch_github_user(access_token)
-        user, token = await GitHubOAuthService.authenticate_or_register(db, profile)
+        user, token = await GitHubOAuthService.authenticate_or_register(
+            db, profile, access_token=access_token
+        )
         params = {
             "oauth_token": token,
             "username": user.username or profile.get("login", ""),
@@ -217,7 +219,9 @@ async def post_github_callback(
             payload.code, redirect_uri=payload.redirect_uri
         )
         profile = await GitHubOAuthService.fetch_github_user(access_token)
-        user, token = await GitHubOAuthService.authenticate_or_register(db, profile)
+        user, token = await GitHubOAuthService.authenticate_or_register(
+            db, profile, access_token=access_token
+        )
         return AuthResponse(
             access_token=token,
             message=f"Logged in as @{user.username or profile.get('login')}",
@@ -243,8 +247,11 @@ async def github_pat_login(
             detail="No GITHUB_TOKEN configured in server environment",
         )
     try:
-        profile = await GitHubOAuthService.fetch_github_user(settings.GITHUB_TOKEN.strip())
-        user, token = await GitHubOAuthService.authenticate_or_register(db, profile)
+        pat_token = settings.GITHUB_TOKEN.strip()
+        profile = await GitHubOAuthService.fetch_github_user(pat_token)
+        user, token = await GitHubOAuthService.authenticate_or_register(
+            db, profile, access_token=pat_token
+        )
         return AuthResponse(
             access_token=token,
             message=f"Logged in via connected GitHub account @{user.username or profile.get('login')}",

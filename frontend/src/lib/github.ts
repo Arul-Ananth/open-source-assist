@@ -131,6 +131,7 @@ export function ownerAsContributor(fullName: string, avatarUrl: string): Contrib
 export interface SearchResponse {
   total_count: number
   items: Repo[]
+  search_mode?: 'semantic' | 'hybrid'
 }
 
 export interface BackendSearchFilters {
@@ -184,9 +185,19 @@ export async function searchBackendProjects(
     }
   }
 
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+  try {
+    const rawToken = localStorage.getItem('osa-token')
+    if (rawToken) {
+      headers['Authorization'] = `Bearer ${rawToken}`
+    }
+  } catch {
+    // LocalStorage unavailable
+  }
+
   const res = await fetch('/api/v1/search', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers,
     body: JSON.stringify(payload),
     signal: options.signal,
   })
@@ -198,6 +209,7 @@ export async function searchBackendProjects(
   const data = await res.json()
   return {
     total_count: data.total ?? data.items?.length ?? 0,
+    search_mode: data.search_mode ?? 'semantic',
     items: (data.items || []).map((item: any) => ({
       id: item.repo_id,
       full_name: item.full_name,
