@@ -1,15 +1,39 @@
-"""Routes for triggering GitHub data synchronisation."""
+"""Routes for GitHub data synchronisation, cached contributor metadata, and user metrics."""
 
-from fastapi import APIRouter, Depends, HTTPException
+from __future__ import annotations
+
+from typing import Annotated, Any
+
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
 from backend.schemas.github import ContributorSyncResponse, SyncResponse
 from backend.services.github_client import GitHubAPIError, GitHubClient
+from backend.services.github_service import GitHubService
 from backend.services import github_sync_service
 
-router = APIRouter(tags=["GitHub Sync"])
+router = APIRouter(tags=["GitHub"])
 
+
+class ContributorsBatchRequest(BaseModel):
+    repos: list[str] = Field(..., description="List of repository full names (owner/repo).")
+
+
+class ContributorItem(BaseModel):
+    login: str
+    avatar_url: str
+    html_url: str
+    contributions: int = 1
+
+
+class ContributorsBatchResponse(BaseModel):
+    contributors: dict[str, list[ContributorItem]]
+    rate_limited: bool = False
+
+
+# --- Synchronization Endpoints (Used by Airflow and Admin) ---
 
 @router.post(
     "/sync",
@@ -58,3 +82,55 @@ async def sync_existing_contributors(
             detail=str(error),
             headers=headers,
         ) from error
+
+
+# --- Proxied & Cached GitHub Contributor Endpoints ---
+
+@router.get(
+    "/github/contributors",
+    response_model=ContributorsBatchResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get Cached Repository Contributors",
+)
+async def get_contributors(
+    repos: Annotated[
+        str,
+        Query(
+            description="Comma-separated repository full names (e.g. 'torvalds/linux,tiangolo/fastapi')"
+        ),
+    ] = "",
+) -> ContributorsBatchResponse:
+    repo_list = [r.strip() for r in repos.split(",") if r.strip()]
+    data = await GitHubService.get_contributors_batch(repo_list)
+    return ContributorsBatchResponse(
+        contributors=data["contributors"],
+        rate_limited=data.get("rate_limited", False),
+    )
+
+
+@router.post(
+    "/github/contributors/batch",
+    response_model=ContributorsBatchResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Batch Get Cached Repository Contributors",
+)
+async def post_contributors_batch(
+    payload: ContributorsBatchRequest,
+) -> ContributorsBatchResponse:
+    data = await GitHubService.get_contributors_batch(payload.repos)
+    return ContributorsBatchResponse(
+        contributors=data["contributors"],
+        rate_limited=data.get("rate_limited", False),
+    )
+
+
+# --- Aggregated User Profile & Contribution Heatmap ---
+
+@router.get(
+    "/github/user-profile/{username}",
+    status_code=status.HTTP_200_OK,
+    summary="Get Aggregated GitHub User Profile and Metrics",
+)
+async def get_user_profile(username: str) -> dict[str, Any]:
+    """Fetch user GitHub profile, contribution metrics, streak, badges, and heatmap."""
+    return await GitHubService.get_user_profile_stats(username)

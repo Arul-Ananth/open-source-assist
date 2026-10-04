@@ -22,11 +22,19 @@ import {
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
-import { Button, Card, CardContent, CardDescription, CardHeader, CardTitle, EmptyState } from '@/components/ui'
+import { Button, EmptyState } from '@/components/ui'
 import { useAuthStore } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
 import { RoadmapPage } from '@/components/roadmap/RoadmapPage'
-import { DocsSection, EventsSection, ExploreSection, RedeemSection } from '@/components/dashboard'
+import {
+  DocsSection,
+  EventsSection,
+  ExploreSection,
+  ForumSection,
+  OverviewSection,
+  ContributorsSection,
+  RedeemSection,
+} from '@/components/dashboard'
 import { LearningSection } from '@/components/learning'
 
 interface DashboardPageProps {
@@ -48,20 +56,6 @@ const navItems = [
 
 type SectionId = (typeof navItems)[number]['id']
 
-/** Dashed placeholder box where a real component will be dropped in. */
-function Slot({ label, className }: { label: string; className?: string }) {
-  return (
-    <div
-      className={cn(
-        'flex min-h-[140px] items-center justify-center rounded-lg border border-dashed border-border bg-background/40 text-xs font-mono text-muted-foreground',
-        className,
-      )}
-    >
-      {label}
-    </div>
-  )
-}
-
 /** Blank state for modules that aren't built yet (uses the shared EmptyState). */
 function BlankModule({ id }: { id: SectionId }) {
   const section = navItems.find((item) => item.id === id)
@@ -82,160 +76,6 @@ function BlankModule({ id }: { id: SectionId }) {
   )
 }
 
-/** Stat tiles — layout only, values are wired up later. */
-function PointsStats() {
-  const stats = [
-    { label: 'Total points', icon: '✦' },
-    { label: 'Streak', icon: '🔥' },
-    { label: 'Merged PRs', icon: '⇄' },
-    { label: 'Rank', icon: '#' },
-  ]
-
-  return (
-    <div className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-      {stats.map((stat) => (
-        <Card key={stat.label}>
-          <CardContent className="p-5 pt-5">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground">{stat.label}</p>
-              <span className="text-sm text-accent-text" aria-hidden="true">
-                {stat.icon}
-              </span>
-            </div>
-            <p className="mt-2 font-mono text-2xl font-bold tracking-tight text-muted-foreground/60">—</p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
-  )
-}
-
-function OverviewSection() {
-  const user = useAuthStore((s) => s.user)
-  const displayName = user?.username ?? 'contributor'
-
-  return (
-    <div className="animate-fade-up space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">Welcome back, {displayName}</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your profile and contribution overview.
-        </p>
-      </div>
-
-      {/* Profile header card */}
-      <Card>
-        <CardContent className="flex flex-wrap items-center gap-4 p-5 pt-5">
-          <span className="flex size-14 items-center justify-center rounded-xl bg-gradient-program font-mono text-xl font-bold text-white">
-            {displayName.charAt(0).toUpperCase()}
-          </span>
-          <div className="min-w-0">
-            <p className="truncate text-base font-bold">{displayName}</p>
-            <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Points / stats row — empty values, wire up later */}
-      <PointsStats />
-
-      {/* Contribution heatmap (GitHub-style) + badges — structure only, no data */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-sm">Activity</CardTitle>
-            <CardDescription>
-              <span className="flex items-center gap-4">
-                <span>Contributions in the last year</span>
-                <span className="flex items-center gap-1.5">
-                  <span className="text-[10px] text-muted-foreground">Less</span>
-                  {[0, 1, 2, 3, 4].map((level) => (
-                    <span
-                      key={level}
-                      className="size-2.5 rounded-[2px] border border-border/60 bg-accent"
-                      style={{ opacity: 0.12 + level * 0.22 }}
-                      aria-hidden="true"
-                    />
-                  ))}
-                  <span className="text-[10px] text-muted-foreground">More</span>
-                </span>
-              </span>
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {/* Empty heatmap: month labels + 7×N grid of unfilled cells */}
-            <div className="overflow-x-auto pb-1">
-              <div className="min-w-[640px]">
-                <div className="mb-1.5 flex gap-[3px] pl-7 font-mono text-[10px] text-muted-foreground">
-                  {['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'].map(
-                    (month) => (
-                      <span key={month} className="w-[calc(13px*4.4)]">
-                        {month}
-                      </span>
-                    ),
-                  )}
-                </div>
-                <div className="flex gap-[3px]">
-                  {/* Day-of-week column (Mon/Wed/Fri labels like GitHub) */}
-                  <div className="flex w-7 flex-col gap-[3px] font-mono text-[10px] text-muted-foreground">
-                    {['', 'Mon', '', 'Wed', '', 'Fri', ''].map((day, i) => (
-                      <span key={i} className="h-[13px] leading-[13px]">
-                        {day}
-                      </span>
-                    ))}
-                  </div>
-                  {/* Weeks: 53 columns × 7 rows of empty cells */}
-                  {Array.from({ length: 53 }, (_, week) => (
-                    <div key={week} className="flex flex-col gap-[3px]">
-                      {Array.from({ length: 7 }, (_, day) => (
-                        <span
-                          key={day}
-                          className="size-[13px] rounded-[2px] border border-border/60 bg-accent/5"
-                        />
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Your badges</CardTitle>
-            <CardDescription>Recent achievements.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Slot label="<Badges />" className="min-h-[240px]" />
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Other overview sections — layout only */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle className="text-sm">Recent activity</CardTitle>
-            <CardDescription>Your latest PRs, issues and reviews.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Slot label="<RecentActivity />" className="min-h-[160px]" />
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm">Quick actions</CardTitle>
-            <CardDescription>Shortcuts to get contributing fast.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Slot label="<QuickActions />" className="min-h-[160px]" />
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  )
-}
 
 export default function DashboardPage({ onLogout }: DashboardPageProps) {
   const user = useAuthStore((s) => s.user)
@@ -359,7 +199,7 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
         {/* Content */}
         <main className="mx-auto w-full max-w-[1200px] flex-1 p-4 sm:p-6">
           {section === 'overview' ? (
-            <OverviewSection />
+            <OverviewSection onNavigate={(id: string) => navigate(id as SectionId)} />
           ) : section === 'learning' ? (
             <LearningSection />
           ) : section === 'roadmap' ? (
@@ -368,6 +208,10 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
             <ExploreSection />
           ) : section === 'events' ? (
             <EventsSection />
+          ) : section === 'forum' ? (
+            <ForumSection />
+          ) : section === 'contributors' ? (
+            <ContributorsSection />
           ) : section === 'redeem' ? (
             <RedeemSection />
           ) : section === 'docs' ? (

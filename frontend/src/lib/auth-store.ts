@@ -13,6 +13,7 @@ export interface User {
   skill_level?: string
   user_context?: string
   github_username?: string
+  avatar_url?: string
   token?: string
 }
 
@@ -30,6 +31,10 @@ interface AuthState {
   verifySignupOtp: (email: string, otp: string, username?: string) => Promise<User>
   requestPasswordReset: (email: string) => Promise<{ message: string }>
   resetPassword: (email: string, otp: string, newPassword: string) => Promise<{ message: string }>
+  loginWithToken: (token: string, partialUser?: Partial<User>) => Promise<User>
+  loginWithConnectedGitHub: () => Promise<User>
+  getGitHubOAuthUrl: () => Promise<{ configured: boolean; url: string | null; has_pat: boolean }>
+  updateUser: (partial: Partial<User>) => void
   logout: () => void
 }
 
@@ -44,6 +49,10 @@ function toUser(parsed: Partial<User>): User | null {
     role: parsed.role === 'admin' ? 'admin' : 'user',
     account_status: status === 'suspended' || status === 'banned' ? status : 'active',
     accountStatus: status === 'suspended' || status === 'banned' ? status : 'active',
+    skill_level: parsed.skill_level,
+    user_context: parsed.user_context,
+    github_username: parsed.github_username,
+    avatar_url: parsed.avatar_url,
   }
 }
 
@@ -109,12 +118,21 @@ async function fetchProfile(accessToken: string, fallback: User): Promise<User> 
     skill_level: profile.skill_level || fallback.skill_level,
     user_context: profile.user_context || fallback.user_context,
     github_username: profile.github_username || fallback.github_username,
+    avatar_url: profile.avatar_url || fallback.avatar_url,
   }
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
+export const useAuthStore = create<AuthState>((set, get) => ({
   user: loadUser(),
   token: loadToken(),
+
+  updateUser: (partial: Partial<User>) => {
+    const current = get().user
+    if (!current) return
+    const updated: User = { ...current, ...partial }
+    persistSession(updated, get().token)
+    set({ user: updated })
+  },
 
   login: async (email, password) => {
     const res = await fetch('/api/v1/auth/login', {
@@ -233,6 +251,54 @@ export const useAuthStore = create<AuthState>((set) => ({
     })
     if (!res.ok) throw new Error(extractErrorMessage(await res.json().catch(() => null), 'Could not reset password'))
     return await res.json()
+  },
+
+  loginWithToken: async (token: string, partialUser?: Partial<User>) => {
+    const fallback: User = {
+      username: partialUser?.username || 'developer',
+      email: partialUser?.email || '',
+      token,
+      avatar_url: partialUser?.avatar_url,
+      role: partialUser?.role || 'user',
+      account_status: 'active',
+      accountStatus: 'active',
+    }
+    const user = await fetchProfile(token, fallback)
+    persistSession(user, token)
+    set({ user, token })
+    return user
+  },
+
+  getGitHubOAuthUrl: async () => {
+    const res = await fetch('/api/v1/auth/github/url')
+    if (!res.ok) {
+      return { configured: false, url: null, has_pat: false }
+    }
+    return await res.json()
+  },
+
+  loginWithConnectedGitHub: async () => {
+    const res = await fetch('/api/v1/auth/github/pat-login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => null)
+      throw new Error(extractErrorMessage(err, 'Failed to sign in via connected GitHub account'))
+    }
+    const { access_token } = await res.json()
+    const fallback: User = {
+      username: 'developer',
+      email: '',
+      token: access_token,
+      role: 'user',
+      account_status: 'active',
+      accountStatus: 'active',
+    }
+    const user = await fetchProfile(access_token, fallback)
+    persistSession(user, access_token)
+    set({ user, token: access_token })
+    return user
   },
 
   logout: () => {

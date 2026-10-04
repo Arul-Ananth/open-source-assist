@@ -2,13 +2,17 @@ import logging
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.api.dependencies import get_current_user
+from backend.core.config import settings
 from backend.core.database import get_db
 from backend.schemas.auth import (
     AuthResponse,
     ForgotPasswordRequest,
+    GitHubAuthUrlResponse,
+    GitHubCodeRequest,
     LoginRequest,
     MessageResponse,
     ResetPasswordRequest,
@@ -18,6 +22,7 @@ from backend.schemas.auth import (
     VerifySignupOTPRequest,
 )
 from backend.services.auth_service import AuthService
+from backend.services.github_oauth_service import GitHubOAuthService
 
 logger = logging.getLogger(__name__)
 
@@ -121,6 +126,130 @@ async def get_me(
         id=current_user["user_id"],
         email=current_user["email"],
         username=current_user.get("username"),
+        github_username=current_user.get("github_username"),
+        skill_level=current_user.get("skill_level"),
+        user_context=current_user.get("user_context"),
         role=current_user.get("role", "user"),
         account_status=current_user.get("account_status", "active"),
     )
+
+
+@router.get(
+    "/github/url",
+    response_model=GitHubAuthUrlResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Get GitHub OAuth Authorization URL",
+)
+async def get_github_oauth_url(
+    state: str | None = None,
+    redirect_uri: str | None = None,
+) -> GitHubAuthUrlResponse:
+    """Return the GitHub OAuth authorization URL and configuration status."""
+    configured = GitHubOAuthService.is_configured()
+    url = None
+    if configured:
+        url = GitHubOAuthService.get_authorization_url(state=state, redirect_uri=redirect_uri)
+    return GitHubAuthUrlResponse(
+        configured=configured,
+        url=url,
+        has_pat=bool(settings.GITHUB_TOKEN and settings.GITHUB_TOKEN.strip()),
+    )
+
+
+@router.get(
+    "/github/callback",
+    summary="Handle GitHub OAuth Browser Callback",
+    response_class=RedirectResponse,
+)
+async def github_oauth_callback(
+    code: str | None = None,
+    error: str | None = None,
+    error_description: str | None = None,
+    state: str | None = None,
+    db: Annotated[AsyncSession, Depends(get_db)] = None,
+) -> RedirectResponse:
+    """Handle the redirect back from GitHub authorization."""
+    import urllib.parse
+
+    if error:
+        err_msg = error_description or error
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/?oauth_error={urllib.parse.quote(err_msg)}"
+        )
+    if not code:
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/?oauth_error={urllib.parse.quote('No authorization code received from GitHub')}"
+        )
+
+    try:
+        access_token = await GitHubOAuthService.exchange_code_for_token(code)
+        profile = await GitHubOAuthService.fetch_github_user(access_token)
+        user, token = await GitHubOAuthService.authenticate_or_register(db, profile)
+        params = {
+            "oauth_token": token,
+            "username": user.username or profile.get("login", ""),
+            "email": user.email,
+            "avatar_url": profile.get("avatar_url", ""),
+        }
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/?{urllib.parse.urlencode(params)}"
+        )
+    except Exception as exc:
+        logger.error("GitHub OAuth callback failed: %s", exc, exc_info=True)
+        return RedirectResponse(
+            url=f"{settings.FRONTEND_URL}/?oauth_error={urllib.parse.quote(str(exc))}"
+        )
+
+
+@router.post(
+    "/github/callback",
+    response_model=AuthResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Exchange GitHub OAuth Code for JWT Token",
+)
+async def post_github_callback(
+    payload: GitHubCodeRequest,
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> AuthResponse:
+    """Exchange GitHub OAuth code for application JWT token."""
+    try:
+        access_token = await GitHubOAuthService.exchange_code_for_token(
+            payload.code, redirect_uri=payload.redirect_uri
+        )
+        profile = await GitHubOAuthService.fetch_github_user(access_token)
+        user, token = await GitHubOAuthService.authenticate_or_register(db, profile)
+        return AuthResponse(
+            access_token=token,
+            message=f"Logged in as @{user.username or profile.get('login')}",
+        )
+    except Exception as exc:
+        logger.error("GitHub OAuth code exchange failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+
+@router.post(
+    "/github/pat-login",
+    response_model=AuthResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Log In with Server Connected GitHub Token in Development",
+)
+async def github_pat_login(
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> AuthResponse:
+    """Log in using the connected GitHub PAT profile in development."""
+    if not settings.GITHUB_TOKEN or not settings.GITHUB_TOKEN.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No GITHUB_TOKEN configured in server environment",
+        )
+    try:
+        profile = await GitHubOAuthService.fetch_github_user(settings.GITHUB_TOKEN.strip())
+        user, token = await GitHubOAuthService.authenticate_or_register(db, profile)
+        return AuthResponse(
+            access_token=token,
+            message=f"Logged in via connected GitHub account @{user.username or profile.get('login')}",
+        )
+    except Exception as exc:
+        logger.error("GitHub PAT login failed: %s", exc, exc_info=True)
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+

@@ -145,6 +145,27 @@ export function AuthDialog({ open, onClose, initialMode = 'login' }: AuthDialogP
     }
   }
 
+  const handleGitHubAuth = async () => {
+    setGeneralError(null)
+    setLoading(true)
+    try {
+      const data = await useAuthStore.getState().getGitHubOAuthUrl()
+      if (data.configured && data.url) {
+        window.location.href = data.url
+        return
+      }
+
+      setGeneralError(
+        'GitHub OAuth is not configured. Please configure GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env.'
+      )
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'GitHub authentication failed.'
+      setGeneralError(message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleVerifyOtp = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     setGeneralError(null)
@@ -570,9 +591,15 @@ export function AuthDialog({ open, onClose, initialMode = 'login' }: AuthDialogP
               <span className="h-px flex-1 bg-border" />
             </div>
 
-            <Button type="button" variant="secondary" className="mt-2.5 h-9 w-full">
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={loading}
+              onClick={handleGitHubAuth}
+              className="mt-2.5 h-9 w-full"
+            >
               <GitBranch className="size-4" aria-hidden="true" />
-              Continue with GitHub
+              {loading ? 'Connecting to GitHub...' : 'Continue with GitHub'}
             </Button>
 
             <p className="auth-switch mt-3 text-center text-xs text-muted-foreground">
