@@ -155,14 +155,8 @@ export function AuthDialog({ open, onClose, initialMode = 'login' }: AuthDialogP
         return
       }
 
-      if (data.has_pat) {
-        await useAuthStore.getState().loginWithConnectedGitHub()
-        onClose()
-        return
-      }
-
       setGeneralError(
-        'GitHub OAuth requires GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env.'
+        'GitHub OAuth is not configured. Please configure GITHUB_CLIENT_ID and GITHUB_CLIENT_SECRET in .env.'
       )
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'GitHub authentication failed.'
