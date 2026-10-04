@@ -28,7 +28,13 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
 
 async def init_db() -> None:
-    """Create all ORM tables if they do not exist yet."""
+    """Create all ORM tables if they do not exist yet and ensure schema sync."""
     import backend.models  # noqa: F401
+    from sqlalchemy import text
+
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        if conn.dialect.name == "postgresql":
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS github_username VARCHAR(100);"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS user_context VARCHAR(2000);"))
+            await conn.execute(text("ALTER TABLE users ADD COLUMN IF NOT EXISTS skill_level VARCHAR(50);"))
