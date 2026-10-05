@@ -1,4 +1,4 @@
-export type Pillar = 'learn' | 'knowledge'
+export type Pillar = 'learn' | 'ai-modules' | 'knowledge'
 
 export interface CoachConfig {
   step: number

@@ -3,6 +3,7 @@ import {
   ExternalLink,
   Flame,
   GitPullRequest,
+  GraduationCap,
   Trophy,
   Sparkles,
   BookOpen,
@@ -13,6 +14,7 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Badge, Button } from '@/components/ui'
 import { useAuthStore } from '@/lib/auth-store'
 import { useGitHubUserProfile } from '@/lib/use-github-profile'
+import { SkillAssessmentModal } from '@/components/roadmap/SkillAssessmentModal'
 import { BadgesSection } from './BadgesSection'
 import { RecentActivitySection } from './RecentActivitySection'
 import { QuickActionsSection } from './QuickActionsSection'
@@ -34,6 +36,7 @@ export function OverviewSection({ onNavigate }: OverviewSectionProps) {
   const user = useAuthStore((s) => s.user)
   const { data, isLoading, refetch, isFetching } = useGitHubUserProfile()
   const [hoveredDay, setHoveredDay] = useState<{ date: string; count: number } | null>(null)
+  const [isAssessmentModalOpen, setIsAssessmentModalOpen] = useState(false)
 
   const profile = data?.profile
   const stats = data?.stats
@@ -77,7 +80,7 @@ export function OverviewSection({ onNavigate }: OverviewSectionProps) {
       </div>
 
       {/* Profile Header Card */}
-      <Card className="relative overflow-hidden border-border/70 bg-surface/50 backdrop-blur-sm">
+      <Card className="relative overflow-hidden border border-border bg-surface shadow-none">
         <div className="absolute right-0 top-0 -mr-16 -mt-16 size-64 rounded-full bg-accent/5 blur-3xl" />
         <CardContent className="flex flex-col gap-5 p-5 pt-5 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
@@ -150,6 +153,46 @@ export function OverviewSection({ onNavigate }: OverviewSectionProps) {
               <ExternalLink className="size-3 opacity-60" />
             </a>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Skill Assessment Status Card (Flat design) */}
+      <Card className="border border-border bg-surface shadow-none">
+        <CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3.5">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-md border border-accent/40 bg-accent/10 text-accent-text">
+              <GraduationCap className="size-5" />
+            </div>
+            <div>
+              <div className="flex flex-wrap items-center gap-2">
+                <h3 className="text-sm font-semibold text-foreground">GitHub Skill Assessment</h3>
+                {user?.skill_level ? (
+                  <Badge variant="outline" className="border-accent/40 bg-accent/10 font-mono text-[10px] uppercase text-accent-text">
+                    Assessed: {user.skill_level}
+                  </Badge>
+                ) : (
+                  <Badge variant="outline" className="border-amber-500/40 bg-amber-500/10 font-mono text-[10px] uppercase text-amber-400">
+                    Not Evaluated
+                  </Badge>
+                )}
+              </div>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {user?.skill_level
+                  ? user.user_context
+                    ? `Context: ${user.user_context}`
+                    : `Evaluated at ${user.skill_level} level. Retake to recalibrate your personalized roadmap & docs.`
+                  : 'Take the 5-minute interactive quiz grounded in your GitHub repositories to calibrate your personalized Roadmap & Docs recommendations.'}
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setIsAssessmentModalOpen(true)}
+            className="shrink-0 gap-1.5 font-semibold"
+          >
+            <Sparkles className="size-3.5" />
+            <span>{user?.skill_level ? 'Retake Assessment' : 'Take Skill Assessment'}</span>
+          </Button>
         </CardContent>
       </Card>
 
@@ -405,6 +448,13 @@ export function OverviewSection({ onNavigate }: OverviewSectionProps) {
           </CardContent>
         </Card>
       </div>
+
+      {/* Skill Assessment Interactive Modal */}
+      <SkillAssessmentModal
+        isOpen={isAssessmentModalOpen}
+        onClose={() => setIsAssessmentModalOpen(false)}
+        username={handle}
+      />
     </div>
   )
 }

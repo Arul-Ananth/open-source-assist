@@ -182,6 +182,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         role: profile.role === 'admin' ? 'admin' : 'user',
         account_status: status === 'suspended' || status === 'banned' ? status : 'active',
         accountStatus: status === 'suspended' || status === 'banned' ? status : 'active',
+        skill_level: profile.skill_level || undefined,
+        user_context: profile.user_context || undefined,
+        github_username: profile.github_username || undefined,
+        avatar_url: profile.avatar_url || undefined,
         token,
       }
       persistSession(user, token)

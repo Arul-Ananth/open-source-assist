@@ -6,6 +6,7 @@ import {
   GitCommit,
   GitFork,
   GitPullRequest,
+  GraduationCap,
   Heart,
   LifeBuoy,
   PenLine,
@@ -32,6 +33,7 @@ import {
   type DocumentItem,
 } from '@/lib/docs-api'
 import { useAuthStore } from '@/lib/auth-store'
+import { SkillAssessmentModal } from '@/components/roadmap/SkillAssessmentModal'
 import { cn } from '@/lib/utils'
 
 const CATEGORY_ICON_MAP: Record<string, typeof Target> = {
@@ -55,6 +57,7 @@ export function DocsSection() {
   const [totalCount, setTotalCount] = useState<number>(0)
   const [userSkillLevel, setUserSkillLevel] = useState<string | null>(null)
   const [isPersonalized, setIsPersonalized] = useState<boolean>(false)
+  const [isAssessmentModalOpen, setIsAssessmentModalOpen] = useState<boolean>(false)
 
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -118,7 +121,7 @@ export function DocsSection() {
       </div>
 
       {/* Personalization Banner */}
-      {isPersonalized && userSkillLevel && (
+      {isPersonalized && userSkillLevel ? (
         <div className="flex items-center gap-3 rounded-lg border border-accent/40 bg-accent/10 px-4 py-3 text-xs text-foreground">
           <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-accent text-on-accent">
             <Sparkles className="size-3.5" aria-hidden="true" />
@@ -130,7 +133,29 @@ export function DocsSection() {
             Resources and guides tailored to your assessed knowledge and focus are prioritized with recommendation badges.
           </div>
         </div>
-      )}
+      ) : user ? (
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 rounded-lg border border-border bg-surface p-4 text-xs">
+          <div className="flex items-center gap-3">
+            <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-accent/40 bg-accent/10 text-accent-text">
+              <GraduationCap className="size-4" />
+            </div>
+            <div>
+              <p className="font-semibold text-foreground">Want personalized documentation recommendations?</p>
+              <p className="text-muted-foreground mt-0.5">
+                Take the 5-minute Skill Assessment to prioritize guides tailored to your exact proficiency.
+              </p>
+            </div>
+          </div>
+          <Button
+            size="sm"
+            onClick={() => setIsAssessmentModalOpen(true)}
+            className="shrink-0 gap-1.5 font-semibold"
+          >
+            <Sparkles className="size-3.5" />
+            Take Skill Assessment
+          </Button>
+        </div>
+      ) : null}
 
       {/* Search & Filters */}
       <Card className="rounded-xl">
@@ -357,6 +382,16 @@ export function DocsSection() {
           })}
         </div>
       )}
+
+      {/* Skill Assessment Modal */}
+      <SkillAssessmentModal
+        isOpen={isAssessmentModalOpen}
+        onClose={() => {
+          setIsAssessmentModalOpen(false)
+          void loadDocs(category, query)
+        }}
+        username={user?.username}
+      />
     </div>
   )
 }

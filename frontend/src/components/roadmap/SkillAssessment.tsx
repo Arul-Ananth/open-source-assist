@@ -7,6 +7,7 @@ import type { SkillAssessment as SkillAssessmentType } from '@/types/github'
 interface SkillAssessmentProps {
   skills: SkillAssessmentType[]
   username?: string
+  userSkillLevel?: string
 }
 
 const levelConfig: Record<string, { badge: 'default' | 'accent' | 'success' | 'warning'; label: string }> = {
@@ -16,7 +17,7 @@ const levelConfig: Record<string, { badge: 'default' | 'accent' | 'success' | 'w
   expert: { badge: 'success', label: 'Expert' },
 }
 
-export function SkillAssessmentPanel({ skills, username }: SkillAssessmentProps) {
+export function SkillAssessmentPanel({ skills, username, userSkillLevel }: SkillAssessmentProps) {
   const [isModalOpen, setIsModalOpen] = useState(false)
 
   return (
@@ -25,21 +26,28 @@ export function SkillAssessmentPanel({ skills, username }: SkillAssessmentProps)
         <div className="flex items-center gap-2">
           <Code2 size={20} className="text-accent" aria-hidden="true" />
           <div>
-            <h2 id="skills-heading" className="text-lg font-semibold text-primary-text">
-              Skill Assessment
-            </h2>
+            <div className="flex items-center gap-2">
+              <h2 id="skills-heading" className="text-base font-semibold text-foreground">
+                Technical Skill Breakdown
+              </h2>
+              {userSkillLevel && (
+                <span className="rounded-sm border border-border bg-background px-1.5 py-0.5 font-mono text-[11px] font-semibold capitalize text-accent">
+                  Assessed: {userSkillLevel}
+                </span>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
-              Repository metrics and AI-evaluated domain competencies
+              Repository metrics and evaluated open-source competencies
             </p>
           </div>
         </div>
         <Button
           size="sm"
           onClick={() => setIsModalOpen(true)}
-          className="gap-1.5 self-start sm:self-auto font-semibold"
+          className="gap-1.5 self-start sm:self-auto font-semibold text-xs"
         >
           <Sparkles className="size-3.5" />
-          Take Interactive Assessment
+          {userSkillLevel ? 'Retake Quiz' : 'Take 5-min Quiz'}
         </Button>
       </div>
 
@@ -51,7 +59,7 @@ export function SkillAssessmentPanel({ skills, username }: SkillAssessmentProps)
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="font-mono text-sm">{skill.language}</CardTitle>
-                  <Badge variant={config.badge}>{config.label}</Badge>
+                  <Badge variant={config.badge} className="font-mono text-xs">{config.label}</Badge>
                 </div>
               </CardHeader>
               <CardContent>
@@ -60,9 +68,9 @@ export function SkillAssessmentPanel({ skills, username }: SkillAssessmentProps)
                   color={skill.color}
                   label={`${skill.repos} repos`}
                 />
-                <div className="flex items-center gap-1 mt-2 text-xs text-secondary-text">
+                <div className="flex items-center gap-1 mt-2 text-xs text-muted-foreground">
                   <TrendingUp size={12} aria-hidden="true" />
-                  <span>Proficiency score: <span className="font-mono text-primary-text">{skill.score}/100</span></span>
+                  <span>Proficiency score: <span className="font-mono text-foreground font-semibold">{skill.score}/100</span></span>
                 </div>
               </CardContent>
             </Card>

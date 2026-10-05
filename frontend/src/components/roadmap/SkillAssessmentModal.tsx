@@ -99,6 +99,9 @@ export function SkillAssessmentModal({ isOpen, onClose, username }: SkillAssessm
         token || undefined,
       )
       setResult(evaluation)
+      if (token) {
+        void useAuthStore.getState().refreshCurrentUser()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Evaluation submission failed')
     } finally {

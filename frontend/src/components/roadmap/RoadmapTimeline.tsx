@@ -1,9 +1,11 @@
-import { CheckCircle2, Circle, Lock, ArrowRight, Clock } from 'lucide-react'
+import { CheckCircle2, Circle, Lock, ArrowRight, Clock, Check } from 'lucide-react'
 import { Badge, Button } from '@/components/ui'
 import type { RoadmapMilestone } from '@/types/github'
 
 interface RoadmapTimelineProps {
   milestones: RoadmapMilestone[]
+  onAdvanceMilestone?: (milestoneId: number) => void
+  onSetCurrentMilestone?: (milestoneId: number) => void
 }
 
 const statusConfig: Record<string, {
@@ -13,44 +15,53 @@ const statusConfig: Record<string, {
   textClass: string
 }> = {
   completed: {
-    icon: <CheckCircle2 size={20} className="text-emerald-400" aria-hidden="true" />,
-    lineColor: 'bg-emerald-400/40',
-    dotBg: 'bg-emerald-400 border-emerald-400/30',
-    textClass: 'text-secondary-text line-through',
+    icon: <CheckCircle2 size={18} className="text-emerald-500" aria-hidden="true" />,
+    lineColor: 'bg-emerald-500/40',
+    dotBg: 'bg-emerald-500/10 border-emerald-500/40',
+    textClass: 'text-muted-foreground line-through',
   },
   current: {
-    icon: <Circle size={20} className="text-accent animate-pulse" aria-hidden="true" />,
+    icon: <Circle size={18} className="text-accent animate-pulse" aria-hidden="true" />,
     lineColor: 'bg-accent/40',
-    dotBg: 'bg-accent border-accent/30',
-    textClass: 'text-primary-text font-semibold',
+    dotBg: 'bg-accent/10 border-accent',
+    textClass: 'text-foreground font-semibold',
   },
   upcoming: {
-    icon: <Circle size={20} className="text-secondary-text" aria-hidden="true" />,
+    icon: <Circle size={18} className="text-muted-foreground" aria-hidden="true" />,
     lineColor: 'bg-border',
     dotBg: 'bg-surface border-border',
-    textClass: 'text-secondary-text',
+    textClass: 'text-muted-foreground',
   },
   locked: {
-    icon: <Lock size={20} className="text-secondary-text/50" aria-hidden="true" />,
+    icon: <Lock size={18} className="text-muted-foreground/50" aria-hidden="true" />,
     lineColor: 'bg-border/50',
     dotBg: 'bg-surface border-border/50',
-    textClass: 'text-secondary-text/50',
+    textClass: 'text-muted-foreground/50',
   },
 }
 
-export function RoadmapTimeline({ milestones }: RoadmapTimelineProps) {
+export function RoadmapTimeline({
+  milestones,
+  onAdvanceMilestone,
+  onSetCurrentMilestone,
+}: RoadmapTimelineProps) {
   return (
     <section aria-labelledby="roadmap-heading">
-      <div className="flex items-center gap-2 mb-6">
-        <ArrowRight size={20} className="text-accent" aria-hidden="true" />
-        <h2 id="roadmap-heading" className="text-lg font-semibold text-primary-text">
-          Your Contribution Roadmap
-        </h2>
+      <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <ArrowRight size={20} className="text-accent" aria-hidden="true" />
+          <h2 id="roadmap-heading" className="text-base font-semibold text-foreground">
+            Contribution Roadmap Timeline
+          </h2>
+        </div>
+        <span className="text-xs font-mono text-muted-foreground">
+          Sequential Progression
+        </span>
       </div>
 
       <div className="relative">
         {milestones.map((milestone, index) => {
-          const config = statusConfig[milestone.status]
+          const config = statusConfig[milestone.status] || statusConfig.upcoming
           const isLast = index === milestones.length - 1
 
           return (
@@ -65,47 +76,79 @@ export function RoadmapTimeline({ milestones }: RoadmapTimelineProps) {
 
               {/* Status dot */}
               <div className="relative z-10 flex-shrink-0 mt-0.5">
-                <div className={`w-10 h-10 rounded-md border-2 flex items-center justify-center ${config.dotBg}`}>
+                <div className={`w-10 h-10 rounded-md border flex items-center justify-center ${config.dotBg}`}>
                   {config.icon}
                 </div>
               </div>
 
               {/* Content */}
               <div
-                className={`flex-1 rounded-md border border-border bg-surface p-4 shadow-none transition-shadow duration-150
-                  ${milestone.status === 'current' ? 'border-accent/40 hover:shadow-[4px_4px_0px_0px_rgba(var(--accent-rgb),0.5)]' : ''}
-                  ${milestone.status === 'upcoming' ? 'hover:shadow-[4px_4px_0px_0px_rgba(var(--accent-rgb),0.3)]' : ''}
+                className={`flex-1 rounded-md border bg-surface p-4 transition-colors
+                  ${milestone.status === 'current' ? 'border-accent shadow-sm' : 'border-border'}
                   ${milestone.status === 'locked' ? 'opacity-60' : ''}
                 `}
               >
                 <div className="flex items-start justify-between flex-wrap gap-2">
                   <div>
-                    <h3 className={`text-sm ${config.textClass}`}>
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs text-muted-foreground">
+                        Step {milestone.id}
+                      </span>
+                      {milestone.status === 'completed' && (
+                        <span className="rounded-sm bg-emerald-500/10 px-1.5 py-0.2 font-mono text-[10px] font-semibold text-emerald-400">
+                          DONE
+                        </span>
+                      )}
+                      {milestone.status === 'current' && (
+                        <span className="rounded-sm bg-accent/15 px-1.5 py-0.2 font-mono text-[10px] font-semibold text-accent">
+                          IN PROGRESS
+                        </span>
+                      )}
+                    </div>
+                    <h3 className={`text-sm mt-0.5 ${config.textClass}`}>
                       {milestone.title}
                     </h3>
-                    <p className="text-xs text-secondary-text mt-1">
+                    <p className="text-xs text-muted-foreground mt-1">
                       {milestone.description}
                     </p>
                   </div>
-                  <div className="flex items-center gap-1 text-xs text-secondary-text">
+                  <div className="flex items-center gap-1 text-xs text-muted-foreground font-mono">
                     <Clock size={12} aria-hidden="true" />
-                    <span className="font-mono">{milestone.estimatedWeeks}w</span>
+                    <span>{milestone.estimatedWeeks}w</span>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 mt-3 flex-wrap">
                   {milestone.skills.map((skill) => (
-                    <Badge key={skill} variant="outline">
+                    <Badge key={skill} variant="outline" className="font-mono text-[11px]">
                       {skill}
                     </Badge>
                   ))}
                 </div>
 
-                {milestone.status === 'current' && (
-                  <div className="mt-3">
-                    <Button size="sm" variant="primary">
-                      Start This Milestone
-                      <ArrowRight size={14} aria-hidden="true" />
+                {milestone.status === 'current' && onAdvanceMilestone && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => onAdvanceMilestone(milestone.id)}
+                      className="gap-1.5 text-xs font-semibold"
+                    >
+                      <Check size={14} aria-hidden="true" />
+                      Mark Step Completed
+                    </Button>
+                  </div>
+                )}
+
+                {milestone.status === 'upcoming' && onSetCurrentMilestone && (
+                  <div className="mt-3 flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => onSetCurrentMilestone(milestone.id)}
+                      className="gap-1.5 text-xs"
+                    >
+                      Jump to This Step
                     </Button>
                   </div>
                 )}

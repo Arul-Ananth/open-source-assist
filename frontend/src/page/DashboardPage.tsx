@@ -202,7 +202,7 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
             <OverviewSection onNavigate={(id: string) => navigate(id as SectionId)} />
           ) : section === 'learning' ? (
             <LearningSection />
-          ) : section === 'roadmap' ? (
+          ) : section === 'roadmap' || (section as string) === 'assessment' ? (
             <RoadmapPage embedded />
           ) : section === 'explore' ? (
             <ExploreSection />
