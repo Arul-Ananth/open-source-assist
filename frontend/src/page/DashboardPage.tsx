@@ -19,7 +19,6 @@ import {
   BookMarked,
   Heart,
   Shield,
-  GraduationCap,
 } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
@@ -35,7 +34,6 @@ import {
   OverviewSection,
   ContributorsSection,
   RedeemSection,
-  SkillAssessmentSection,
 } from '@/components/dashboard'
 import { LearningSection } from '@/components/learning'
 
@@ -48,7 +46,6 @@ const navItems = [
   { id: 'overview', label: 'Profile & Overview', icon: LayoutDashboard },
   { id: 'learning', label: 'Learning', icon: BookOpen },
   { id: 'roadmap', label: 'Personalized Roadmap', icon: Map },
-  { id: 'assessment', label: 'Skill Assessment', icon: GraduationCap },
   { id: 'explore', label: 'Explore', icon: Compass },
   { id: 'events', label: 'Events', icon: CalendarDays },
   { id: 'forum', label: 'Forum', icon: MessagesSquare },
@@ -205,10 +202,8 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
             <OverviewSection onNavigate={(id: string) => navigate(id as SectionId)} />
           ) : section === 'learning' ? (
             <LearningSection />
-          ) : section === 'roadmap' ? (
+          ) : section === 'roadmap' || (section as string) === 'assessment' ? (
             <RoadmapPage embedded />
-          ) : section === 'assessment' ? (
-            <SkillAssessmentSection />
           ) : section === 'explore' ? (
             <ExploreSection />
           ) : section === 'events' ? (

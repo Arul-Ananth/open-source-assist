@@ -9,6 +9,7 @@ import {
   Search,
   UserCheck,
   RotateCcw,
+  Award,
 } from 'lucide-react'
 import { GitHubProfileInput } from './GitHubProfileInput'
 import { ProfileSummary } from './ProfileSummary'
@@ -540,6 +541,66 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
               </span>
             </div>
           </div>
+
+          {/* Milestone Completion & Graduation Banner */}
+          {totalCount > 0 && completedCount === totalCount && (
+            <div className="rounded-md border border-emerald-500/40 bg-emerald-950/20 p-5 space-y-3">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex size-10 items-center justify-center rounded-md bg-emerald-500/20 text-emerald-400">
+                    <Award className="size-6" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-foreground">
+                      Roadmap Curriculum Completed! 🎉
+                    </h3>
+                    <p className="text-xs text-muted-foreground">
+                      You have mastered all milestones for this {currentUser?.skill_level || 'starter'} track.
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    onClick={() => setIsQuizModalOpen(true)}
+                    className="gap-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white"
+                  >
+                    <Sparkles className="size-3.5" />
+                    Take Level-Up Assessment
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      if (analyzedUser) {
+                        localStorage.removeItem(`roadmap_milestones_${analyzedUser}`)
+                        void handleAnalyze(analyzedUser)
+                      }
+                    }}
+                    className="gap-1 text-xs"
+                  >
+                    <RotateCcw className="size-3" />
+                    Reset Progress
+                  </Button>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-border/40 text-xs">
+                <div className="rounded border border-border bg-background p-2.5">
+                  <span className="text-[10px] uppercase font-mono text-muted-foreground">Contribution Status</span>
+                  <p className="font-semibold text-emerald-400 mt-0.5">Ready for Upstream PRs</p>
+                </div>
+                <div className="rounded border border-border bg-background p-2.5">
+                  <span className="text-[10px] uppercase font-mono text-muted-foreground">Badge Earned</span>
+                  <p className="font-semibold text-foreground mt-0.5">Open Source Graduate 🏅</p>
+                </div>
+                <div className="rounded border border-border bg-background p-2.5">
+                  <span className="text-[10px] uppercase font-mono text-muted-foreground">Next Milestone</span>
+                  <p className="font-semibold text-accent mt-0.5">Advance to Next Tier</p>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Profile Overview */}
           <ProfileSummary
