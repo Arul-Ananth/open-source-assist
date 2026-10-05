@@ -447,8 +447,8 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
         </div>
       )}
 
-      {/* Skill Assessment Recommendation Banner */}
-      {!currentUser?.skill_level && (
+      {/* Skill Assessment Recommendation Banner (only shown while in progress) */}
+      {!currentUser?.skill_level && totalCount > 0 && completedCount < totalCount && (
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 rounded-md border border-accent/40 bg-accent/5 p-4">
           <div className="flex items-start sm:items-center gap-3">
             <GraduationCap className="size-5 shrink-0 text-accent mt-0.5 sm:mt-0" />
