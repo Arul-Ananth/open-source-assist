@@ -19,6 +19,7 @@ import { LearningSimulator } from './LearningSimulator'
 import { KnowledgeExplorer } from './KnowledgeExplorer'
 import { LearningConceptModal } from './LearningConceptModal'
 import { LearningChatDrawer } from './LearningChatDrawer'
+import { AILearningModulesView } from './AILearningModulesView'
 
 const STORAGE_KEYS = {
   completed: 'git_assist_completed_tutorials',
@@ -222,6 +223,19 @@ export function LearningSection() {
           </button>
           <button
             type="button"
+            aria-pressed={pillar === 'ai-modules'}
+            onClick={() => setPillar('ai-modules')}
+            className={cn(
+              'rounded-md px-3 py-2 text-xs font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent',
+              pillar === 'ai-modules'
+                ? 'bg-accent text-on-accent'
+                : 'text-muted-foreground hover:bg-background hover:text-foreground',
+            )}
+          >
+            AI Learning Modules
+          </button>
+          <button
+            type="button"
             aria-pressed={pillar === 'knowledge'}
             onClick={() => setPillar('knowledge')}
             className={cn(
@@ -241,6 +255,12 @@ export function LearningSection() {
               <div className="eyebrow">LEARN GIT &amp; GITHUB</div>
               <h1>GitHub Processes</h1>
               <p>Practice the essential GitHub workflows in a safe, guided workspace.</p>
+            </>
+          ) : pillar === 'ai-modules' ? (
+            <>
+              <div className="eyebrow">AI CURRICULUM SYNTHESIZER</div>
+              <h1>AI Learning Modules</h1>
+              <p>Generate structured modules, takeaways, and verified source citations on any technical topic.</p>
             </>
           ) : (
             <>
@@ -295,6 +315,8 @@ export function LearningSection() {
             </div>
           </section>
         )}
+
+        {pillar === 'ai-modules' && <AILearningModulesView />}
 
         {pillar === 'knowledge' && (
           <KnowledgeExplorer
