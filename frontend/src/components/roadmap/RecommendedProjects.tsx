@@ -26,23 +26,23 @@ export function RecommendedProjects({ projects }: RecommendedProjectsProps) {
     <section aria-labelledby="projects-heading">
       <div className="flex items-center gap-2 mb-4">
         <Sparkles size={20} className="text-accent" aria-hidden="true" />
-        <h2 id="projects-heading" className="text-lg font-semibold text-primary-text">
-          Recommended Projects
+        <h2 id="projects-heading" className="text-base font-semibold text-foreground">
+          Recommended Repositories for Your Level
         </h2>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {projects.map((project) => {
-          const difficulty = difficultyConfig[project.difficulty]
+          const difficulty = difficultyConfig[project.difficulty] || difficultyConfig.intermediate
           return (
-            <Card key={project.id}>
+            <Card key={project.id} className="flex flex-col justify-between">
               <CardHeader>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <CardTitle className="font-mono text-sm truncate">
+                    <CardTitle className="font-mono text-sm truncate text-foreground">
                       {project.fullName}
                     </CardTitle>
-                    <CardDescription className="line-clamp-2">
+                    <CardDescription className="line-clamp-2 text-xs mt-1 text-muted-foreground">
                       {project.description}
                     </CardDescription>
                   </div>
@@ -60,41 +60,41 @@ export function RecommendedProjects({ projects }: RecommendedProjectsProps) {
               </CardHeader>
 
               <CardContent className="pb-3">
-                <div className="flex items-center gap-3 text-xs text-secondary-text">
+                <div className="flex items-center gap-3 text-xs text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <Star size={12} aria-hidden="true" />
-                    <span className="font-mono text-primary-text">{project.stars.toLocaleString()}</span>
+                    <span className="font-mono text-foreground">{project.stars.toLocaleString()}</span>
                   </span>
                   <span className="flex items-center gap-1">
                     <GitFork size={12} aria-hidden="true" />
-                    <span className="font-mono text-primary-text">{project.forks.toLocaleString()}</span>
+                    <span className="font-mono text-foreground">{project.forks.toLocaleString()}</span>
                   </span>
                   <span className="flex items-center gap-1">
                     <CircleDot size={12} aria-hidden="true" />
-                    <span className="font-mono text-primary-text">{project.openIssues}</span>
+                    <span className="font-mono text-foreground">{project.openIssues}</span>
                     <span>issues</span>
                   </span>
                 </div>
 
                 <div className="flex items-center gap-2 mt-3 flex-wrap">
-                  <Badge variant="accent">{project.language}</Badge>
-                  <Badge variant={difficulty.badge}>{difficulty.label}</Badge>
+                  <Badge variant="accent" className="font-mono text-xs">{project.language}</Badge>
+                  <Badge variant={difficulty.badge} className="font-mono text-xs">{difficulty.label}</Badge>
                   {project.topics.slice(0, 3).map((topic) => (
-                    <Badge key={topic} variant="outline">{topic}</Badge>
+                    <Badge key={topic} variant="outline" className="font-mono text-[11px]">#{topic}</Badge>
                   ))}
                 </div>
               </CardContent>
 
-              <CardFooter>
+              <CardFooter className="pt-0">
                 <a
                   href={project.url}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full"
                 >
-                  <Button variant="primary" size="sm" className="w-full">
-                    Contribute
-                    <ExternalLink size={14} aria-hidden="true" />
+                  <Button variant="primary" size="sm" className="w-full font-semibold text-xs gap-1.5">
+                    Explore Repository
+                    <ExternalLink size={13} aria-hidden="true" />
                   </Button>
                 </a>
               </CardFooter>

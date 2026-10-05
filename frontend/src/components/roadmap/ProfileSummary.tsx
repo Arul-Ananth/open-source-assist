@@ -18,17 +18,17 @@ export function ProfileSummary({ user, topLanguages, totalStars }: ProfileSummar
           <img
             src={user.avatar_url}
             alt={`${user.login}'s avatar`}
-            className="w-16 h-16 rounded-md border border-border"
+            className="w-16 h-16 rounded-md border border-border object-cover"
           />
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h2 className="text-lg font-semibold text-primary-text truncate">
+              <h2 className="text-lg font-semibold text-foreground truncate">
                 {user.name || user.login}
               </h2>
-              <span className="text-sm font-mono text-secondary-text">@{user.login}</span>
+              <span className="text-sm font-mono text-muted-foreground">@{user.login}</span>
             </div>
             {user.bio && (
-              <p className="text-sm text-secondary-text mt-1 line-clamp-2">{user.bio}</p>
+              <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{user.bio}</p>
             )}
 
             <div className="flex items-center gap-4 mt-3 flex-wrap">
@@ -41,7 +41,7 @@ export function ProfileSummary({ user, topLanguages, totalStars }: ProfileSummar
 
             <div className="flex items-center gap-2 mt-3 flex-wrap">
               {topLanguages.map((lang) => (
-                <Badge key={lang} variant="accent">
+                <Badge key={lang} variant="accent" className="font-mono text-xs">
                   {lang}
                 </Badge>
               ))}
@@ -55,9 +55,9 @@ export function ProfileSummary({ user, topLanguages, totalStars }: ProfileSummar
 
 function StatItem({ icon, label, value }: { icon: React.ReactNode; label: string; value: number }) {
   return (
-    <div className="flex items-center gap-1.5 text-xs text-secondary-text">
+    <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
       {icon}
-      <span className="font-mono text-primary-text font-medium">{value.toLocaleString()}</span>
+      <span className="font-mono text-foreground font-medium">{value.toLocaleString()}</span>
       <span>{label}</span>
     </div>
   )
