@@ -1,7 +1,7 @@
 import uuid
 from sqlalchemy import Column, String, TIMESTAMP, func, ForeignKey, text
 from sqlalchemy.dialects.postgresql import UUID, JSONB, TSVECTOR
-from app.core.database import Base
+from backend.core.database import Base
 from sqlalchemy.orm import relationship
 
 class Post(Base):
@@ -21,4 +21,3 @@ class Post(Base):
 
     # relationships (optional)
     author = relationship("User", backref="posts", foreign_keys=[author_id])
-    community = relationship("Community", backref="posts", foreign_keys=[community_id])
