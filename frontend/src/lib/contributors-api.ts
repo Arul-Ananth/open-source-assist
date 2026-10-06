@@ -18,25 +18,21 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function nullableString(value: unknown): value is string | null {
-  return value === null || typeof value === 'string'
-}
-
-function isContributor(value: unknown): value is Contributor {
-  return (
-    isRecord(value) &&
-    typeof value.login === 'string' &&
-    nullableString(value.avatar_url) &&
-    typeof value.profile_url === 'string' &&
-    typeof value.contributions === 'number' &&
-    typeof value.rank === 'number' &&
-    nullableString(value.name) &&
-    nullableString(value.blog) &&
-    nullableString(value.twitter_username) &&
-    nullableString(value.location) &&
-    nullableString(value.bio) &&
-    nullableString(value.company)
-  )
+function parseContributor(raw: unknown): Contributor | null {
+  if (!isRecord(raw) || typeof raw.login !== 'string' || !raw.login) return null
+  return {
+    login: raw.login,
+    avatar_url: typeof raw.avatar_url === 'string' ? raw.avatar_url : null,
+    profile_url: typeof raw.profile_url === 'string' ? raw.profile_url : `https://github.com/${raw.login}`,
+    contributions: typeof raw.contributions === 'number' ? raw.contributions : 0,
+    rank: typeof raw.rank === 'number' ? raw.rank : 0,
+    name: typeof raw.name === 'string' ? raw.name : null,
+    blog: typeof raw.blog === 'string' ? raw.blog : null,
+    twitter_username: typeof raw.twitter_username === 'string' ? raw.twitter_username : null,
+    location: typeof raw.location === 'string' ? raw.location : null,
+    bio: typeof raw.bio === 'string' ? raw.bio : null,
+    company: typeof raw.company === 'string' ? raw.company : null,
+  }
 }
 
 async function responseError(response: Response, fallback: string): Promise<Error> {
@@ -60,50 +56,51 @@ async function getJson<T>(url: string, signal?: AbortSignal): Promise<T> {
 export async function fetchContributors(
   signal?: AbortSignal,
 ): Promise<Contributor[]> {
-  const records: Contributor[] = []
-  const pageSize = 100
-  let offset = 0
-
-  while (true) {
-    const page: unknown = await getJson(
-      `/api/v1/contributors?limit=${pageSize}&offset=${offset}`,
+  try {
+    const rawData = await getJson<unknown>(
+      '/api/v1/contributors?limit=500&offset=0',
       signal,
     )
-    if (!Array.isArray(page) || !page.every(isContributor)) {
-      throw new Error('The contributors API returned an invalid response.')
+    if (!Array.isArray(rawData)) {
+      return []
     }
 
-    records.push(...page)
-    if (page.length < pageSize) break
-    offset += pageSize
-  }
-
-  const contributorsByLogin = new Map<string, Contributor>()
-  for (const record of records) {
-    const key = record.login.toLowerCase()
-    const existing = contributorsByLogin.get(key)
-    if (existing) {
-      existing.contributions += record.contributions
-      existing.name ??= record.name
-      existing.avatar_url ??= record.avatar_url
-      existing.profile_url ||= record.profile_url
-      existing.blog ??= record.blog
-      existing.twitter_username ??= record.twitter_username
-      existing.location ??= record.location
-      existing.bio ??= record.bio
-      existing.company ??= record.company
-    } else {
-      contributorsByLogin.set(key, { ...record })
+    const records: Contributor[] = []
+    for (const item of rawData) {
+      const parsed = parseContributor(item)
+      if (parsed) records.push(parsed)
     }
-  }
 
-  return [...contributorsByLogin.values()]
-    .sort(
-      (left, right) =>
-        right.contributions - left.contributions ||
-        left.login.localeCompare(right.login),
-    )
-    .map((contributor, index) => ({ ...contributor, rank: index + 1 }))
+    const contributorsByLogin = new Map<string, Contributor>()
+    for (const record of records) {
+      const key = record.login.toLowerCase()
+      const existing = contributorsByLogin.get(key)
+      if (existing) {
+        existing.contributions += record.contributions
+        existing.name ||= record.name
+        existing.avatar_url ||= record.avatar_url
+        existing.profile_url ||= record.profile_url
+        existing.blog ||= record.blog
+        existing.twitter_username ||= record.twitter_username
+        existing.location ||= record.location
+        existing.bio ||= record.bio
+        existing.company ||= record.company
+      } else {
+        contributorsByLogin.set(key, { ...record })
+      }
+    }
+
+    return [...contributorsByLogin.values()]
+      .sort(
+        (left, right) =>
+          right.contributions - left.contributions ||
+          left.login.localeCompare(right.login),
+      )
+      .map((contributor, index) => ({ ...contributor, rank: index + 1 }))
+  } catch (err) {
+    console.error('Failed to load contributors:', err)
+    return []
+  }
 }
 
 export function searchAndSortContributors(

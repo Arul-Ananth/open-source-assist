@@ -6,6 +6,7 @@ and repository discovery for skill assessments.
 
 from __future__ import annotations
 
+import asyncio
 import datetime
 import logging
 import random
@@ -256,36 +257,40 @@ class GitHubService:
         events: list[dict[str, Any]] = []
         repos: list[dict[str, Any]] = []
 
-        async with httpx.AsyncClient(timeout=8.0) as client:
-            try:
-                user_res = await client.get(
-                    f"https://api.github.com/users/{clean_user}",
-                    headers=headers,
-                )
-                if user_res.status_code == 200:
-                    gh_user = user_res.json()
-            except Exception as exc:
-                logger.warning("Failed to fetch GitHub profile for %s: %s", clean_user, exc)
+        is_local = clean_user.lower() in {"admin", "demo", "test", "guest", "contributor"}
+        if not is_local:
+            async with httpx.AsyncClient(timeout=4.0) as client:
+                async def fetch_u():
+                    try:
+                        r = await client.get(f"https://api.github.com/users/{clean_user}", headers=headers)
+                        return r.json() if r.status_code == 200 else {}
+                    except Exception as exc:
+                        logger.debug("Failed to fetch GitHub profile for %s: %s", clean_user, exc)
+                        return {}
 
-            try:
-                events_res = await client.get(
-                    f"https://api.github.com/users/{clean_user}/events?per_page=100",
-                    headers=headers,
-                )
-                if events_res.status_code == 200:
-                    events = events_res.json()
-            except Exception as exc:
-                logger.warning("Failed to fetch GitHub events for %s: %s", clean_user, exc)
+                async def fetch_e():
+                    try:
+                        r = await client.get(f"https://api.github.com/users/{clean_user}/events?per_page=100", headers=headers)
+                        return r.json() if r.status_code == 200 else []
+                    except Exception as exc:
+                        logger.debug("Failed to fetch GitHub events for %s: %s", clean_user, exc)
+                        return []
 
-            try:
-                repos_res = await client.get(
-                    f"https://api.github.com/users/{clean_user}/repos?sort=updated&per_page=50",
-                    headers=headers,
-                )
-                if repos_res.status_code == 200:
-                    repos = repos_res.json()
-            except Exception as exc:
-                logger.warning("Failed to fetch GitHub repos for %s: %s", clean_user, exc)
+                async def fetch_r():
+                    try:
+                        r = await client.get(f"https://api.github.com/users/{clean_user}/repos?sort=updated&per_page=50", headers=headers)
+                        return r.json() if r.status_code == 200 else []
+                    except Exception as exc:
+                        logger.debug("Failed to fetch GitHub repos for %s: %s", clean_user, exc)
+                        return []
+
+                u_res, e_res, r_res = await asyncio.gather(fetch_u(), fetch_e(), fetch_r())
+                if isinstance(u_res, dict):
+                    gh_user = u_res
+                if isinstance(e_res, list):
+                    events = e_res
+                if isinstance(r_res, list):
+                    repos = r_res
 
         if not gh_user:
             gh_user = {
@@ -293,13 +298,13 @@ class GitHubService:
                 "name": clean_user.capitalize(),
                 "avatar_url": f"https://github.com/{clean_user}.png",
                 "html_url": f"https://github.com/{clean_user}",
-                "bio": "Open Source Contributor & Developer",
-                "public_repos": len(repos) if repos else 12,
-                "followers": 1,
+                "bio": "",
+                "public_repos": len(repos),
+                "followers": 0,
                 "following": 0,
-                "created_at": "2025-06-01T00:00:00Z",
-                "location": "Global",
-                "company": "Open Source Community",
+                "created_at": None,
+                "location": None,
+                "company": None,
             }
 
         push_events = [e for e in events if e.get("type") == "PushEvent"]
@@ -311,17 +316,17 @@ class GitHubService:
             commits = pe.get("payload", {}).get("commits", [])
             total_push_commits += len(commits) if commits else 1
 
-        public_repos_count = gh_user.get("public_repos", len(repos))
-        followers_count = gh_user.get("followers", 0)
+        public_repos_count = gh_user.get("public_repos") if gh_user.get("public_repos") is not None else len(repos)
+        followers_count = gh_user.get("followers") or 0
 
-        base_points = 250
+        base_points = 0
         repo_points = public_repos_count * 35
         commit_points = max(len(push_events), total_push_commits) * 15
         event_points = len(events) * 10
         follower_points = followers_count * 15
         total_points = base_points + repo_points + commit_points + event_points + follower_points
 
-        streak_days = 6 if len(events) > 10 else (3 if len(events) > 0 else 1)
+        streak_days = 6 if len(events) > 10 else (3 if len(events) > 0 else 0)
 
         if total_points >= 2000:
             rank = "Top 5% · Gold Contributor"
@@ -332,8 +337,11 @@ class GitHubService:
         elif total_points >= 500:
             rank = "Top 25% · Bronze Contributor"
             tier = "Bronze"
-        else:
+        elif total_points > 0:
             rank = "Rising Contributor"
+            tier = "Novice"
+        else:
+            rank = "Getting Started"
             tier = "Novice"
 
         lang_counts: dict[str, int] = {}
@@ -368,6 +376,7 @@ class GitHubService:
         has_ai = any("ai" in (r.get("name") or "").lower() or "ml" in (r.get("name") or "").lower() for r in repos)
         has_security = any("sentry" in (r.get("name") or "").lower() or "ocean" in (r.get("name") or "").lower() for r in repos)
 
+        now_month_year = datetime.datetime.now(datetime.timezone.utc).strftime("%B %Y")
         badges = [
             {
                 "id": "repo_architect",
@@ -377,17 +386,17 @@ class GitHubService:
                 "tier": "Gold" if public_repos_count >= 20 else "Silver",
                 "unlocked": public_repos_count >= 5,
                 "progress": min(100, int(public_repos_count / 20 * 100)),
-                "unlocked_at": "June 2025",
+                "unlocked_at": now_month_year if public_repos_count >= 5 else None,
             },
             {
                 "id": "polyglot",
                 "title": "Polyglot Hacker",
-                "description": f"Proficient across {len(languages)} technologies ({', '.join(l['name'] for l in languages[:3])})",
+                "description": f"Proficient across {len(languages)} technologies ({', '.join(l['name'] for l in languages[:3]) if languages else 'None'})",
                 "icon": "Code2",
                 "tier": "Gold",
                 "unlocked": len(languages) >= 3,
                 "progress": 100 if len(languages) >= 3 else int(len(languages) / 3 * 100),
-                "unlocked_at": "July 2025",
+                "unlocked_at": now_month_year if len(languages) >= 3 else None,
             },
             {
                 "id": "commit_trailblazer",
@@ -397,17 +406,17 @@ class GitHubService:
                 "tier": "Silver",
                 "unlocked": len(push_events) >= 10,
                 "progress": min(100, int(len(push_events) / 20 * 100)),
-                "unlocked_at": "August 2025",
+                "unlocked_at": now_month_year if len(push_events) >= 10 else None,
             },
             {
                 "id": "open_source_ally",
                 "title": "Open Source Ally",
-                "description": "Active collaborator on Arul-Ananth/open-source-assist",
+                "description": "Active collaborator on open-source repositories",
                 "icon": "Users",
                 "tier": "Diamond",
-                "unlocked": True,
-                "progress": 100,
-                "unlocked_at": "September 2026",
+                "unlocked": len(pr_events) > 0 or len(push_events) > 0,
+                "progress": 100 if (len(pr_events) > 0 or len(push_events) > 0) else 0,
+                "unlocked_at": now_month_year if (len(pr_events) > 0 or len(push_events) > 0) else None,
             },
             {
                 "id": "security_sentinel",
@@ -416,8 +425,8 @@ class GitHubService:
                 "icon": "Shield",
                 "tier": "Silver",
                 "unlocked": has_security,
-                "progress": 100 if has_security else 40,
-                "unlocked_at": "September 2026" if has_security else None,
+                "progress": 100 if has_security else 0,
+                "unlocked_at": now_month_year if has_security else None,
             },
             {
                 "id": "ai_innovator",
@@ -426,8 +435,8 @@ class GitHubService:
                 "icon": "Sparkles",
                 "tier": "Gold",
                 "unlocked": has_ai,
-                "progress": 100 if has_ai else 50,
-                "unlocked_at": "August 2025" if has_ai else None,
+                "progress": 100 if has_ai else 0,
+                "unlocked_at": now_month_year if has_ai else None,
             },
             {
                 "id": "streak_master",
@@ -437,7 +446,7 @@ class GitHubService:
                 "tier": "Gold",
                 "unlocked": streak_days >= 3,
                 "progress": min(100, int(streak_days / 7 * 100)),
-                "unlocked_at": "Current Streak",
+                "unlocked_at": "Current Streak" if streak_days >= 3 else None,
             },
             {
                 "id": "first_pr",
@@ -446,8 +455,8 @@ class GitHubService:
                 "icon": "GitPullRequest",
                 "tier": "Bronze",
                 "unlocked": len(pr_events) > 0,
-                "progress": 100 if len(pr_events) > 0 else 60,
-                "unlocked_at": None,
+                "progress": 100 if len(pr_events) > 0 else 0,
+                "unlocked_at": now_month_year if len(pr_events) > 0 else None,
             },
         ]
 
@@ -542,16 +551,10 @@ class GitHubService:
         heatmap_days: list[dict[str, Any]] = []
         total_contributions = 0
 
-        rng = random.Random(clean_user)
-
         for i in range(364, -1, -1):
             day_date = today - datetime.timedelta(days=i)
             d_str = day_date.strftime("%Y-%m-%d")
             c = event_date_counts.get(d_str, 0)
-
-            if c == 0:
-                if rng.random() < 0.28:
-                    c = rng.choice([1, 2, 3])
 
             if c == 0:
                 level = 0
@@ -577,7 +580,7 @@ class GitHubService:
                 "name": gh_user.get("name") or gh_user.get("login", clean_user),
                 "avatar_url": gh_user.get("avatar_url") or f"https://github.com/{clean_user}.png",
                 "html_url": gh_user.get("html_url") or f"https://github.com/{clean_user}",
-                "bio": gh_user.get("bio") or "Open source enthusiast & developer",
+                "bio": gh_user.get("bio") or "",
                 "company": gh_user.get("company"),
                 "location": gh_user.get("location"),
                 "public_repos": public_repos_count,

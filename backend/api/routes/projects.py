@@ -61,7 +61,7 @@ async def search_contributors(
         default=None,
         description="Prioritise contributors matching this location.",
     ),
-    limit: int = Query(default=50, ge=1, le=100, description="Page size."),
+    limit: int = Query(default=50, ge=1, le=500, description="Page size."),
     offset: int = Query(default=0, ge=0, description="Page offset."),
     session: AsyncSession = Depends(get_db),
 ) -> list[ContributorResponse]:

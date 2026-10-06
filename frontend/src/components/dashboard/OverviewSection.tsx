@@ -55,7 +55,7 @@ export function OverviewSection({ onNavigate }: OverviewSectionProps) {
         month: 'short',
         year: 'numeric',
       })
-    : 'June 2025'
+    : 'Recently'
 
   return (
     <div className="animate-fade-up space-y-6">
@@ -126,11 +126,11 @@ export function OverviewSection({ onNavigate }: OverviewSectionProps) {
               <div className="mt-2.5 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
                 <span className="flex items-center gap-1 rounded-md border border-border/60 bg-background/50 px-2 py-0.5 font-mono">
                   <BookOpen className="size-3 text-accent-text" />
-                  <span>{profile?.public_repos ?? stats?.total_repos ?? 30} Repos</span>
+                  <span>{profile?.public_repos ?? stats?.total_repos ?? 0} Repos</span>
                 </span>
                 <span className="flex items-center gap-1 rounded-md border border-border/60 bg-background/50 px-2 py-0.5 font-mono">
                   <UsersIcon className="size-3 text-accent-text" />
-                  <span>{profile?.followers ?? 1} Follower</span>
+                  <span>{profile?.followers ?? 0} Followers</span>
                 </span>
                 <span className="flex items-center gap-1 rounded-md border border-border/60 bg-background/50 px-2 py-0.5 font-mono">
                   <Calendar className="size-3 text-muted-foreground" />
@@ -209,9 +209,8 @@ export function OverviewSection({ onNavigate }: OverviewSectionProps) {
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <p className="font-mono text-2xl font-bold tracking-tight text-foreground">
-                {isLoading ? '...' : (stats?.total_points ?? 1945).toLocaleString()}
+                {isLoading ? '...' : (stats?.total_points ?? 0).toLocaleString()}
               </p>
-              <span className="text-[10px] font-semibold text-emerald-400">+25 pts earned</span>
             </div>
             <p className="mt-1 text-[11px] text-muted-foreground">Redeemable for rewards</p>
           </CardContent>
@@ -223,16 +222,18 @@ export function OverviewSection({ onNavigate }: OverviewSectionProps) {
             <div className="flex items-center justify-between">
               <p className="text-xs font-medium text-muted-foreground">Active Streak</p>
               <span className="flex size-7 items-center justify-center rounded-lg border border-orange-500/30 bg-orange-500/10 text-orange-400">
-                <Flame className="size-3.5 animate-pulse" />
+                <Flame className="size-3.5" />
               </span>
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <p className="font-mono text-2xl font-bold tracking-tight text-foreground">
-                {isLoading ? '...' : `${stats?.streak_days ?? 6} Days`}
+                {isLoading ? '...' : `${stats?.streak_days ?? 0} Days`}
               </p>
-              <span className="text-[10px] font-semibold text-orange-400">Active</span>
+              <span className="text-[10px] font-semibold text-orange-400">
+                {stats?.streak_days ? 'Active' : 'Inactive'}
+              </span>
             </div>
-            <p className="mt-1 text-[11px] text-muted-foreground">Personal best: 14 days</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">Based on GitHub events</p>
           </CardContent>
         </Card>
 
@@ -268,7 +269,7 @@ export function OverviewSection({ onNavigate }: OverviewSectionProps) {
             </div>
             <div className="mt-2 flex items-baseline gap-2">
               <p className="font-mono text-lg font-bold tracking-tight text-foreground">
-                {isLoading ? '...' : (stats?.rank ?? 'Top 12% · Silver Contributor')}
+                {isLoading ? '...' : (stats?.rank ?? 'Getting Started')}
               </p>
             </div>
             <p className="mt-1 text-[11px] text-muted-foreground">Based on GitHub contributions</p>
@@ -287,7 +288,7 @@ export function OverviewSection({ onNavigate }: OverviewSectionProps) {
                 <CardDescription>
                   <span className="flex items-center gap-4">
                     <span>
-                      {stats?.total_contributions || 248} contributions in the last year
+                      {stats?.total_contributions ?? 0} contributions in the last year
                     </span>
                     <span className="flex items-center gap-1.5">
                       <span className="text-[10px] text-muted-foreground">Less</span>
@@ -348,7 +349,7 @@ export function OverviewSection({ onNavigate }: OverviewSectionProps) {
                       <div key={weekIdx} className="flex flex-col gap-[3px]">
                         {Array.from({ length: 7 }, (_, dayIdx) => {
                           const item = weekDays[dayIdx]
-                          const level = item?.level ?? (weekIdx % 3 === 0 ? 1 : 0)
+                          const level = item?.level ?? 0
                           const count = item?.count ?? 0
                           const date = item?.date ?? `Week ${weekIdx + 1}`
 
