@@ -141,16 +141,36 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
     })
     if (!res.ok) throw new Error(extractErrorMessage(await res.json().catch(() => null), 'Invalid email or password'))
-    const { access_token } = await res.json()
-    const fallback: User = {
-      username: email.split('@')[0] || 'contributor',
-      email,
-      token: access_token,
-      role: 'user',
-      account_status: 'active',
-      accountStatus: 'active',
+    const data = await res.json()
+    const { access_token } = data
+    let user: User
+    if (data.user) {
+      const p = data.user
+      const status = p.account_status || p.accountStatus || 'active'
+      user = {
+        id: p.id,
+        username: p.username || email.split('@')[0] || 'contributor',
+        email: p.email || email,
+        token: access_token,
+        role: p.role === 'admin' ? 'admin' : 'user',
+        account_status: status === 'suspended' || status === 'banned' ? status : 'active',
+        accountStatus: status === 'suspended' || status === 'banned' ? status : 'active',
+        skill_level: p.skill_level || undefined,
+        user_context: p.user_context || undefined,
+        github_username: p.github_username || undefined,
+        avatar_url: p.avatar_url || undefined,
+      }
+    } else {
+      const fallback: User = {
+        username: email.split('@')[0] || 'contributor',
+        email,
+        token: access_token,
+        role: 'user',
+        account_status: 'active',
+        accountStatus: 'active',
+      }
+      user = await fetchProfile(access_token, fallback)
     }
-    const user = await fetchProfile(access_token, fallback)
     persistSession(user, access_token)
     set({ user, token: access_token })
     return user

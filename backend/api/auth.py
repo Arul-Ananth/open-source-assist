@@ -88,10 +88,22 @@ async def login(
 ) -> TokenResponse:
     """Verify user credentials and return signed access token."""
     try:
-        token = await AuthService.login(db, payload.email, payload.password)
+        token, user = await AuthService.login(db, payload.email, payload.password)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(exc)) from exc
-    return TokenResponse(access_token=token)
+    return TokenResponse(
+        access_token=token,
+        user=UserProfileResponse(
+            id=str(user.id),
+            email=user.email,
+            username=user.username,
+            github_username=user.github_username,
+            skill_level=user.skill_level,
+            user_context=user.user_context,
+            role=getattr(user, "role", "user"),
+            account_status=getattr(user, "account_status", "active"),
+        ),
+    )
 
 
 @router.post("/forgot-password", response_model=MessageResponse, status_code=status.HTTP_200_OK)

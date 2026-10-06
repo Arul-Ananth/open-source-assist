@@ -1,5 +1,6 @@
 """Business logic for user registration, verification, authentication, and password recovery."""
 
+import asyncio
 import uuid
 
 from sqlalchemy import select
@@ -96,8 +97,8 @@ class AuthService:
         return create_access_token(str(user.id))
 
     @staticmethod
-    async def login(db: AsyncSession, email: str, password: str) -> str:
-        """Verify user credentials and return signed access token."""
+    async def login(db: AsyncSession, email: str, password: str) -> tuple[str, User]:
+        """Verify user credentials and return signed access token alongside User instance."""
         normalized = email.strip().lower()
         from sqlalchemy import or_
         user = await db.scalar(
@@ -106,13 +107,18 @@ class AuthService:
             )
         )
 
-        if user is None or not verify_password(password, user.password_hash):
+        if user is None:
+            raise ValueError("Invalid email or password")
+
+        is_valid = await asyncio.to_thread(verify_password, password, user.password_hash)
+        if not is_valid:
             raise ValueError("Invalid email or password")
 
         if not user.is_active or getattr(user, "account_status", "active") != "active":
             raise ValueError("Account is deactivated or suspended")
 
-        return create_access_token(str(user.id))
+        token = create_access_token(str(user.id))
+        return token, user
 
     @staticmethod
     async def request_password_reset(db: AsyncSession, email: str) -> None:

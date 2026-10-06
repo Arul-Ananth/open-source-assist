@@ -78,11 +78,27 @@ class ResetPasswordRequest(BaseModel):
     )
 
 
+class UserProfileResponse(BaseModel):
+    """User profile data returned by /me endpoint."""
+
+    id: str = Field(description="User unique identifier UUID.")
+    email: EmailStr = Field(description="User account email address.")
+    username: str | None = Field(default=None, description="Account display username.")
+    github_username: str | None = Field(default=None, description="Linked GitHub account username.")
+    skill_level: str | None = Field(default=None, description="Assessed technical skill level.")
+    user_context: str | None = Field(default=None, description="Synthesized developer context.")
+    role: UserRole = Field(default="user", description="Account authorization role.")
+    account_status: AccountStatus = Field(default="active", description="Account status.")
+
+
 class TokenResponse(BaseModel):
     """Response payload containing JWT access token."""
 
     access_token: str = Field(description="Signed JWT access token.")
     token_type: str = Field(default="bearer", description="Bearer authentication scheme.")
+    user: UserProfileResponse | None = Field(
+        default=None, description="Authenticated user profile details."
+    )
 
 
 class AuthResponse(BaseModel):
@@ -97,19 +113,6 @@ class MessageResponse(BaseModel):
     """Generic message response."""
 
     message: str = Field(description="Operation result message.")
-
-
-class UserProfileResponse(BaseModel):
-    """User profile data returned by /me endpoint."""
-
-    id: str = Field(description="User unique identifier UUID.")
-    email: EmailStr = Field(description="User account email address.")
-    username: str | None = Field(default=None, description="Account display username.")
-    github_username: str | None = Field(default=None, description="Linked GitHub account username.")
-    skill_level: str | None = Field(default=None, description="Assessed technical skill level.")
-    user_context: str | None = Field(default=None, description="Synthesized developer context.")
-    role: UserRole = Field(default="user", description="Account authorization role.")
-    account_status: AccountStatus = Field(default="active", description="Account status.")
 
 
 class GitHubCodeRequest(BaseModel):
