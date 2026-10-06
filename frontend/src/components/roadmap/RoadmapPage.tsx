@@ -58,19 +58,17 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
         let totalStars = 0
         let skills: SkillAssessment[] = []
 
-        // Step 1: Fetch Public GitHub Profile
-        const userRes = await fetch(`https://api.github.com/users/${encodeURIComponent(username)}`, {
-          headers: { Accept: 'application/vnd.github+json' },
-        })
+        // Step 1: Fetch Profile & Repository Metrics through backend proxy (using server GITHUB_TOKEN & cache)
+        const profileRes = await fetch(`/api/v1/github/user-profile/${encodeURIComponent(username)}`)
 
-        if (userRes.status === 403 || userRes.status === 429) {
+        if (profileRes.status === 403 || profileRes.status === 429) {
           setRateLimited(true)
-          setErrorMessage('GitHub API rate limit reached (60 unauthenticated requests/hr per IP).')
+          setErrorMessage('GitHub API rate limit reached. Please try again shortly.')
           setIsLoading(false)
           return
         }
 
-        if (userRes.status === 404) {
+        if (profileRes.status === 404) {
           // If this is the current active local/demo user without a matching GitHub handle,
           // construct a resilient developer profile rather than terminating with an error.
           if (username === currentUser?.username || username === currentUser?.github_username) {
@@ -117,66 +115,74 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
             setIsLoading(false)
             return
           }
-        } else if (!userRes.ok) {
-          setErrorMessage(`GitHub API error (${userRes.status}). Please try again.`)
+        } else if (!profileRes.ok) {
+          setErrorMessage(`GitHub profile fetch failed (${profileRes.status}). Please try again.`)
           setIsLoading(false)
           return
         } else {
-          const u = await userRes.json()
+          const profileData = await profileRes.json()
+          const p = profileData.profile || {}
           ghUser = {
-            login: u.login,
-            avatar_url: u.avatar_url,
-            name: u.name || u.login,
-            bio: u.bio || 'Open source developer.',
-            public_repos: u.public_repos || 0,
-            followers: u.followers || 0,
-            following: u.following || 0,
-            created_at: u.created_at,
-            html_url: u.html_url,
+            login: p.username || username,
+            avatar_url:
+              currentUser?.avatar_url ||
+              p.avatar_url ||
+              `https://api.dicebear.com/7.x/identicon/svg?seed=${username}`,
+            name: p.name || currentUser?.username || username,
+            bio: p.bio || 'Open source developer.',
+            public_repos: p.public_repos ?? 0,
+            followers: p.followers ?? 0,
+            following: p.following ?? 0,
+            created_at: p.created_at || new Date().toISOString(),
+            html_url: p.html_url || `https://github.com/${username}`,
           }
 
-          // Step 2: Fetch Public Repositories to Compute Languages & Stars
-          const reposRes = await fetch(
-            `https://api.github.com/users/${encodeURIComponent(username)}/repos?sort=updated&per_page=30`,
-            { headers: { Accept: 'application/vnd.github+json' } },
-          )
+          const rawLangs = Array.isArray(profileData.languages) ? profileData.languages : []
+          topLangs = rawLangs.map((l: { name: string }) => l.name)
 
-          if (reposRes.ok) {
-            const repos = await reposRes.json()
-            if (Array.isArray(repos) && repos.length > 0) {
-              const langCounts: Record<string, number> = {}
-              repos.forEach((r: any) => {
-                totalStars += r.stargazers_count || 0
-                if (r.language) {
-                  langCounts[r.language] = (langCounts[r.language] || 0) + 1
-                }
-              })
+          const rawRepos = Array.isArray(profileData.top_repos) ? profileData.top_repos : []
+          totalStars = rawRepos.reduce((acc: number, r: { stars?: number }) => acc + (r.stars || 0), 0)
 
-              const sorted = Object.entries(langCounts).sort((a, b) => b[1] - a[1])
-              topLangs = sorted.map(([lang]) => lang).slice(0, 5)
+          const rawTier = currentUser?.skill_level?.toLowerCase()
+          const assessedTier: 'beginner' | 'intermediate' | 'advanced' | 'expert' =
+            rawTier === 'advanced' || rawTier === 'expert'
+              ? 'advanced'
+              : rawTier === 'beginner'
+              ? 'beginner'
+              : 'intermediate'
 
-              const totalTaggedRepos = Object.values(langCounts).reduce((a, b) => a + b, 0) || 1
-              skills = sorted.slice(0, 6).map(([lang, count]) => {
-                const pct = Math.round((count / totalTaggedRepos) * 100)
-                const level = pct > 40 ? 'advanced' : pct > 20 ? 'intermediate' : 'beginner'
-                const colors: Record<string, string> = {
-                  TypeScript: '#3178c6',
-                  JavaScript: '#f7df1e',
-                  Python: '#3572A5',
-                  Rust: '#dea584',
-                  Go: '#00add8',
-                  HTML: '#e34c26',
-                  CSS: '#563d7c',
-                }
-                return {
-                  language: lang,
-                  level,
-                  score: Math.min(100, Math.max(30, pct + (count > 5 ? 30 : 15))),
-                  repos: count,
-                  color: colors[lang] || '#a855f7',
-                }
-              })
+          if (rawLangs.length > 0) {
+            skills = rawLangs.slice(0, 6).map((l: { name: string; percentage: number; count: number; color?: string }) => {
+              const level: 'beginner' | 'intermediate' | 'advanced' | 'expert' =
+                l.percentage > 40 ? 'advanced' : l.percentage > 20 ? 'intermediate' : 'beginner'
+              return {
+                language: l.name,
+                level,
+                score: Math.min(100, Math.max(30, Math.round(l.percentage) + (l.count > 5 ? 30 : 15))),
+                repos: l.count,
+                color: l.color || '#a855f7',
+              }
+            })
+          } else {
+            if (topLangs.length === 0) {
+              topLangs = ['TypeScript', 'Python', 'JavaScript']
             }
+            skills = [
+              {
+                language: topLangs[0] || 'TypeScript',
+                level: assessedTier,
+                score: assessedTier === 'advanced' ? 88 : assessedTier === 'intermediate' ? 70 : 45,
+                repos: 2,
+                color: '#3178c6',
+              },
+              {
+                language: topLangs[1] || 'Python',
+                level: assessedTier === 'advanced' ? 'intermediate' : 'beginner',
+                score: 60,
+                repos: 2,
+                color: '#3572A5',
+              },
+            ]
           }
         }
 
@@ -326,18 +332,23 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
     [currentUser],
   )
 
+  // Guard auto-hydration to avoid infinite re-fetch loops on failure or rate-limit
+  const hasFetchedRef = useRef(false)
+
   // Auto-hydrate roadmap for authenticated user on initial mount
   useEffect(() => {
-    if (!data && !isLoading && defaultUsername) {
+    if (!data && !isLoading && !errorMessage && !rateLimited && defaultUsername && !hasFetchedRef.current) {
+      hasFetchedRef.current = true
       void handleAnalyze(defaultUsername)
     }
-  }, [defaultUsername, handleAnalyze, data, isLoading])
+  }, [defaultUsername, handleAnalyze, data, isLoading, errorMessage, rateLimited])
 
   // Automatically recalibrate roadmap when the user completes/retakes an assessment and skill_level updates
   const lastSkillLevelRef = useRef(currentUser?.skill_level)
   useEffect(() => {
     if (defaultUsername && currentUser?.skill_level && currentUser.skill_level !== lastSkillLevelRef.current) {
       lastSkillLevelRef.current = currentUser.skill_level
+      hasFetchedRef.current = true
       void handleAnalyze(defaultUsername)
     }
   }, [currentUser?.skill_level, defaultUsername, handleAnalyze])
@@ -418,7 +429,10 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
             <Button
               size="sm"
               variant="outline"
-              onClick={() => void handleAnalyze(defaultUsername)}
+              onClick={() => {
+                hasFetchedRef.current = false
+                void handleAnalyze(defaultUsername)
+              }}
               className="gap-1.5 text-xs font-semibold"
             >
               <UserCheck size={14} />
@@ -509,7 +523,10 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
           </div>
           {defaultUsername && (
             <button
-              onClick={() => void handleAnalyze(defaultUsername)}
+              onClick={() => {
+                hasFetchedRef.current = false
+                void handleAnalyze(defaultUsername)
+              }}
               className="flex items-center gap-1 font-mono text-xs hover:underline text-foreground"
             >
               <RotateCcw className="size-3" /> Retry My Profile
