@@ -1,234 +1,718 @@
-import { useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import {
-  Users,
+  ArrowLeft,
+  ArrowUpRight,
+  Building2,
   ExternalLink,
+  MapPin,
+  Medal,
   Search,
+  Trophy,
+  UserRound,
+  Users,
+  X,
 } from 'lucide-react'
-import { Card, CardContent, Badge, Input } from '@/components/ui'
-import { useAuthStore } from '@/lib/auth-store'
-
-interface Contributor {
-  id: string
-  name: string
-  handle: string
-  avatar: string
-  role: string
-  contributions: number
-  mergedPRs: number
-  tier: 'Diamond' | 'Gold' | 'Silver' | 'Bronze'
-  topLanguages: string[]
-  githubUrl: string
-}
-
-const FEATURED_CONTRIBUTORS: Contributor[] = [
-  {
-    id: '1',
-    name: 'Michael John Franklin',
-    handle: 'mikelokinz',
-    avatar: 'https://avatars.githubusercontent.com/u/215789017?v=4',
-    role: 'Core Collaborator · ocean_sentry',
-    contributions: 248,
-    mergedPRs: 14,
-    tier: 'Gold',
-    topLanguages: ['JavaScript', 'TypeScript', 'Python'],
-    githubUrl: 'https://github.com/mikelokinz',
-  },
-  {
-    id: '2',
-    name: 'Arul Ananth',
-    handle: 'Arul-Ananth',
-    avatar: 'https://github.com/Arul-Ananth.png',
-    role: 'Project Creator · open-source-assist',
-    contributions: 540,
-    mergedPRs: 38,
-    tier: 'Diamond',
-    topLanguages: ['Python', 'TypeScript', 'React'],
-    githubUrl: 'https://github.com/Arul-Ananth',
-  },
-  {
-    id: '3',
-    name: 'Sebastián Ramírez',
-    handle: 'tiangolo',
-    avatar: 'https://github.com/tiangolo.png',
-    role: 'Creator · FastAPI',
-    contributions: 3120,
-    mergedPRs: 210,
-    tier: 'Diamond',
-    topLanguages: ['Python', 'Docker'],
-    githubUrl: 'https://github.com/tiangolo',
-  },
-  {
-    id: '4',
-    name: 'Linus Torvalds',
-    handle: 'torvalds',
-    avatar: 'https://github.com/torvalds.png',
-    role: 'Creator · Linux Kernel & Git',
-    contributions: 55000,
-    mergedPRs: 4500,
-    tier: 'Diamond',
-    topLanguages: ['C', 'Shell'],
-    githubUrl: 'https://github.com/torvalds',
-  },
-  {
-    id: '5',
-    name: 'Dan Abramov',
-    handle: 'gaearon',
-    avatar: 'https://github.com/gaearon.png',
-    role: 'Co-Author · Redux & React Core',
-    contributions: 1850,
-    mergedPRs: 142,
-    tier: 'Gold',
-    topLanguages: ['JavaScript', 'React'],
-    githubUrl: 'https://github.com/gaearon',
-  },
-  {
-    id: '6',
-    name: 'Charlie Marsh',
-    handle: 'charliermarsh',
-    avatar: 'https://github.com/charliermarsh.png',
-    role: 'Creator · Astral uv & Ruff',
-    contributions: 2800,
-    mergedPRs: 180,
-    tier: 'Diamond',
-    topLanguages: ['Rust', 'Python'],
-    githubUrl: 'https://github.com/charliermarsh',
-  },
-]
+import { Card, CardContent, EmptyState, Input, Skeleton } from '@/components/ui'
+import {
+  fetchContributors,
+  searchAndSortContributors,
+  type Contributor,
+  type ContributorSortOrder,
+} from '@/lib/contributors-api'
 
 export function ContributorsSection() {
   const [search, setSearch] = useState('')
-  const currentUser = useAuthStore((s) => s.user)
+  const [sortOrder, setSortOrder] = useState<ContributorSortOrder>('highest')
+  const [selectedLogin, setSelectedLogin] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
+  const query = useQuery({
+    queryKey: ['contributors'],
+    queryFn: ({ signal }) => fetchContributors(signal),
+    staleTime: 5 * 60 * 1000,
+  })
 
-  const filtered = FEATURED_CONTRIBUTORS.filter(
-    (c) =>
-      c.name.toLowerCase().includes(search.toLowerCase()) ||
-      c.handle.toLowerCase().includes(search.toLowerCase()) ||
-      c.topLanguages.some((l) => l.toLowerCase().includes(search.toLowerCase())),
+  const contributors = query.data ?? []
+  const matchingContributors = useMemo(
+    () => searchAndSortContributors(contributors, search, sortOrder),
+    [contributors, search, sortOrder],
   )
+  const pageSize = 25
+  const pageCount = Math.max(1, Math.ceil(matchingContributors.length / pageSize))
+  const activePage = Math.min(currentPage, pageCount)
+  const pageStart = (activePage - 1) * pageSize
+  const pageContributors = matchingContributors.slice(pageStart, pageStart + pageSize)
+  const selectedContributor = selectedLogin
+    ? contributors.find(
+        (contributor) =>
+          contributor.login.toLowerCase() === selectedLogin.toLowerCase(),
+      )
+    : undefined
+
+  if (query.isLoading) return <ContributorsLoading />
+
+  if (query.isError && !query.data) {
+    return (
+      <div className="animate-fade-up space-y-6">
+        <ContributorsHeader contributorCount={0} />
+        <EmptyState
+          icon={Users}
+          title="Couldn’t load contributors"
+          description={query.error.message}
+          action={
+            <button
+              type="button"
+              onClick={() => void query.refetch()}
+              disabled={query.isFetching}
+              className="btn-secondary"
+            >
+              {query.isFetching ? 'Retrying…' : 'Try again'}
+            </button>
+          }
+        />
+      </div>
+    )
+  }
+
+  if (selectedContributor) {
+    return (
+      <ContributorProfile
+        contributor={selectedContributor}
+        onBack={() => setSelectedLogin(null)}
+      />
+    )
+  }
+
+  const totalContributions = contributors.reduce(
+    (total, contributor) => total + contributor.contributions,
+    0,
+  )
+  const topContributors = contributors.slice(0, 3)
+  const hasSearchTerm = search.trim().replace(/^@/, '').length > 0
 
   return (
-    <div className="animate-fade-up space-y-6">
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">Open Source Contributors</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Connect and collaborate with developers contributing across open-source ecosystems.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Badge variant="outline" className="border-accent/40 bg-accent/10 px-3 py-1 text-xs text-accent-text">
-            <Users className="mr-1.5 size-3.5" />
-            {FEATURED_CONTRIBUTORS.length}+ Active Contributors
-          </Badge>
-        </div>
-      </div>
+    <div className="animate-fade-up space-y-7">
+      <ContributorsHeader contributorCount={contributors.length} />
 
-      {/* Search Bar */}
-      <div className="relative max-w-md">
-        <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="Filter by name, handle, or language..."
-          className="pl-9 text-xs"
+      <div className="grid gap-3 sm:grid-cols-2">
+        <SummaryCard
+          icon={Users}
+          label="Contributors"
+          value={contributors.length.toLocaleString()}
+        />
+        <SummaryCard
+          icon={Trophy}
+          label="Contributions"
+          value={totalContributions.toLocaleString()}
         />
       </div>
 
-      {/* Grid of Contributors */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {filtered.map((c, index) => {
-          const isCurrentUser =
-            currentUser?.username?.toLowerCase() === c.handle.toLowerCase()
+      {topContributors.length > 0 && (
+        <section aria-labelledby="top-contributors-heading">
+          <div className="mb-3">
+            <h2 id="top-contributors-heading" className="text-base font-semibold">
+              Top contributors
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Ranked by total contributions across synced projects
+            </p>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {topContributors.map((contributor) => (
+              <FeaturedContributor
+                key={contributor.login}
+                contributor={contributor}
+                onSelect={() => setSelectedLogin(contributor.login)}
+              />
+            ))}
+          </div>
+        </section>
+      )}
 
-          return (
-            <Card
-              key={c.id}
-              className={`transition-all duration-200 hover:border-accent/50 ${
-                isCurrentUser ? 'border-accent/60 bg-accent/5 ring-1 ring-accent/30' : ''
-              }`}
+      <section aria-labelledby="leaderboard-heading">
+        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 id="leaderboard-heading" className="text-base font-semibold">
+              Full leaderboard
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {hasSearchTerm
+                ? `${matchingContributors.length} matching ${matchingContributors.length === 1 ? 'contributor' : 'contributors'}`
+                : `${matchingContributors.length.toLocaleString()} contributors found in the database`}
+            </p>
+          </div>
+          {query.isFetching && (
+            <span className="text-xs text-muted-foreground" role="status">
+              Refreshing…
+            </span>
+          )}
+        </div>
+
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row">
+          <div className="relative min-w-0 flex-1">
+            <label className="sr-only" htmlFor="contributor-search">
+              Search contributors
+            </label>
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
+              aria-hidden="true"
+            />
+            <Input
+              id="contributor-search"
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value)
+                setCurrentPage(1)
+              }}
+              placeholder="Search username, name, company, or location"
+              autoComplete="off"
+              className="pl-9 pr-10"
+            />
+            {search && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearch('')
+                  setCurrentPage(1)
+                }}
+                aria-label="Clear contributor search"
+                className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <X className="size-4" aria-hidden="true" />
+              </button>
+            )}
+          </div>
+          <label className="sr-only" htmlFor="contributor-sort">
+            Sort contributors
+          </label>
+          <select
+            id="contributor-sort"
+            value={sortOrder}
+            onChange={(event) => {
+              const value = event.target.value
+              if (
+                value === 'highest' ||
+                value === 'lowest' ||
+                value === 'alphabetical'
+              ) {
+                setSortOrder(value)
+                setCurrentPage(1)
+              }
+            }}
+            className="h-10 rounded-md border border-border bg-surface px-3 text-sm text-foreground outline-none transition-colors focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent sm:w-56"
+          >
+            <option value="highest">Database rank</option>
+            <option value="lowest">Fewest contributions</option>
+            <option value="alphabetical">Username A–Z</option>
+          </select>
+        </div>
+
+        {matchingContributors.length > 0 ? (
+          <>
+            <div className="overflow-hidden rounded-lg border border-border bg-surface">
+              <ul className="divide-y divide-border" aria-label="Contributor rankings">
+                {pageContributors.map((contributor) => (
+                  <ContributorRow
+                    key={contributor.login}
+                    contributor={contributor}
+                    onSelect={() => setSelectedLogin(contributor.login)}
+                  />
+                ))}
+              </ul>
+            </div>
+            <LeaderboardPagination
+              currentPage={activePage}
+              pageCount={pageCount}
+              pageSize={pageSize}
+              totalCount={matchingContributors.length}
+              onPageChange={setCurrentPage}
+            />
+          </>
+        ) : (
+          <EmptyState
+            icon={Users}
+            title={
+              search
+                ? 'No contributors match your search'
+                : 'No contributors synced yet'
+            }
+            description={
+              search
+                ? 'Try another name or clear your search to see the full leaderboard.'
+                : 'Contributors will appear here after this project has been synced.'
+            }
+            action={
+              search ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSearch('')
+                    setCurrentPage(1)
+                  }}
+                  className="btn-secondary"
+                >
+                  Clear search
+                </button>
+              ) : undefined
+            }
+          />
+        )}
+      </section>
+    </div>
+  )
+}
+
+function ContributorsHeader({ contributorCount }: { contributorCount: number }) {
+  return (
+    <header className="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <p className="font-mono text-xs uppercase tracking-[0.16em] text-accent-text">
+          Community leaderboard
+        </p>
+        <h1 className="mt-2 text-2xl font-bold tracking-tight sm:text-3xl">
+          Contributors
+        </h1>
+        <p className="mt-2 max-w-2xl text-sm leading-relaxed text-muted-foreground">
+          Explore contributors across all projects synced to the database.
+        </p>
+      </div>
+      <span className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-3 py-1.5 text-xs text-muted-foreground">
+        <Users className="size-3.5 text-accent-text" aria-hidden="true" />
+        {contributorCount} {contributorCount === 1 ? 'contributor' : 'contributors'}
+      </span>
+    </header>
+  )
+}
+
+function SummaryCard({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: typeof Users
+  label: string
+  value: string
+}) {
+  return (
+    <Card className="hover:translate-y-0">
+      <CardContent className="flex items-center gap-3 p-4 pt-4">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-accent/25 bg-accent/10 text-accent-text">
+          <Icon className="size-5" aria-hidden="true" />
+        </span>
+        <div>
+          <p className="font-mono text-xl font-semibold">{value}</p>
+          <p className="text-xs text-muted-foreground">{label}</p>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+function FeaturedContributor({
+  contributor,
+  onSelect,
+}: {
+  contributor: Contributor
+  onSelect: () => void
+}) {
+  return (
+    <Card
+      className={`relative overflow-hidden hover:translate-y-0 ${
+        contributor.rank === 1
+          ? 'border-accent/50 bg-gradient-soft hover:border-accent/70'
+          : 'hover:border-accent/40'
+      }`}
+    >
+      <CardContent className="p-4 pt-4 sm:p-5 sm:pt-5">
+        <div className="flex items-center justify-between">
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/10 px-2.5 py-1 font-mono text-xs font-semibold text-accent-text">
+            {contributor.rank === 1 ? (
+              <Trophy className="size-3.5" aria-hidden="true" />
+            ) : (
+              <Medal className="size-3.5" aria-hidden="true" />
+            )}
+            Rank #{contributor.rank}
+          </span>
+          {contributor.rank === 1 && (
+            <span className="font-mono text-xs text-muted-foreground">TOP RANK</span>
+          )}
+        </div>
+        <div className="mt-5 flex items-center gap-3">
+          <ContributorAvatar contributor={contributor} size="size-12" />
+          <div className="min-w-0">
+            <p className="truncate font-semibold text-foreground">
+              {contributor.name || `@${contributor.login}`}
+            </p>
+            <p className="mt-0.5 truncate text-xs text-muted-foreground">
+              @{contributor.login}
+            </p>
+          </div>
+        </div>
+        <div className="mt-5 rounded-lg border border-border/70 bg-background/60 py-3 text-center">
+          <p className="font-mono text-lg font-semibold">
+            {contributor.contributions.toLocaleString()}
+          </p>
+          <p className="text-[11px] text-muted-foreground">Contributions</p>
+        </div>
+        <button
+          type="button"
+          onClick={onSelect}
+          className="mt-4 inline-flex min-h-10 w-full items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-medium transition-colors hover:border-accent/50 hover:text-accent-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+        >
+          View profile
+          <ArrowUpRight className="size-4" aria-hidden="true" />
+        </button>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ContributorRow({
+  contributor,
+  onSelect,
+}: {
+  contributor: Contributor
+  onSelect: () => void
+}) {
+  return (
+    <li>
+      <button
+        type="button"
+        onClick={onSelect}
+        className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-background/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-accent sm:flex-nowrap"
+        aria-label={`View @${contributor.login}'s profile, database rank ${contributor.rank}`}
+      >
+        <span className="w-10 shrink-0 font-mono text-sm text-muted-foreground">
+          #{contributor.rank}
+        </span>
+        <ContributorAvatar contributor={contributor} size="size-9" />
+        <span className="min-w-0 flex-1 truncate">
+          <span className="block truncate font-medium">
+            {contributor.name || `@${contributor.login}`}
+          </span>
+          {contributor.name && (
+            <span className="block truncate text-xs text-muted-foreground">
+              @{contributor.login}
+            </span>
+          )}
+        </span>
+        {contributor.location && (
+          <span className="hidden max-w-40 items-center gap-1 truncate text-xs text-muted-foreground lg:inline-flex">
+            <MapPin className="size-3.5 shrink-0" aria-hidden="true" />
+            {contributor.location}
+          </span>
+        )}
+        <span className="ml-auto whitespace-nowrap font-mono text-xs text-muted-foreground">
+          {contributor.contributions.toLocaleString()}{' '}
+          {contributor.contributions === 1 ? 'contribution' : 'contributions'}
+        </span>
+        <ArrowUpRight className="size-4 shrink-0 text-muted-foreground" aria-hidden="true" />
+      </button>
+    </li>
+  )
+}
+
+function ContributorProfile({
+  contributor,
+  onBack,
+}: {
+  contributor: Contributor
+  onBack: () => void
+}) {
+  const websiteUrl = contributor.blog
+    ? getWebsiteUrl(contributor.blog)
+    : undefined
+
+  return (
+    <div className="animate-fade-up space-y-6">
+      <button
+        type="button"
+        onClick={onBack}
+        className="inline-flex items-center gap-2 rounded-md text-sm font-medium text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+      >
+        <ArrowLeft className="size-4" aria-hidden="true" />
+        Back to contributors
+      </button>
+
+      <Card className="overflow-hidden hover:translate-y-0">
+        <div className="h-1 bg-gradient-program" />
+        <CardContent className="p-5 pt-5 sm:p-7 sm:pt-7">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center">
+            <ContributorAvatar contributor={contributor} size="size-20" />
+            <div className="min-w-0 flex-1">
+              <p className="font-mono text-xs uppercase tracking-wider text-muted-foreground">
+                Project contributor
+              </p>
+              <h1 className="mt-1 truncate text-2xl font-bold tracking-tight">
+                {contributor.name || `@${contributor.login}`}
+              </h1>
+              <p className="mt-1 truncate text-sm text-muted-foreground">
+                @{contributor.login} · Ranked across synced projects
+              </p>
+            </div>
+            <a
+              href={contributor.profile_url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex min-h-10 items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 text-sm font-medium transition-colors hover:border-accent/50 hover:text-accent-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
-              <CardContent className="p-5 pt-5">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={c.avatar}
-                      alt={c.name}
-                      className="size-12 rounded-xl border border-border object-cover"
-                      onError={(e) => {
-                        e.currentTarget.src = `https://github.com/${c.handle}.png`
-                      }}
-                    />
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-1.5">
-                        <p className="truncate text-sm font-bold text-foreground">{c.name}</p>
-                        {isCurrentUser && (
-                          <Badge variant="outline" className="text-[9px] text-accent-text border-accent/40">
-                            You
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="truncate font-mono text-xs text-accent-text">@{c.handle}</p>
-                    </div>
-                  </div>
+              GitHub profile
+              <ExternalLink className="size-3.5" aria-hidden="true" />
+            </a>
+          </div>
 
+          {contributor.bio && (
+            <p className="mt-5 max-w-3xl text-sm leading-relaxed text-muted-foreground">
+              {contributor.bio}
+            </p>
+          )}
+
+          <dl className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            <ProfileStat label="Database rank" value={`#${contributor.rank}`} />
+            <ProfileStat
+              label="Contributions"
+              value={contributor.contributions.toLocaleString()}
+            />
+            {contributor.location && (
+              <ProfileStat label="Location" value={contributor.location} />
+            )}
+            {contributor.company && (
+              <ProfileStat label="Company" value={contributor.company} />
+            )}
+          </dl>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            {contributor.company && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground">
+                <Building2 className="size-3.5" aria-hidden="true" />
+                {contributor.company}
+              </span>
+            )}
+            {contributor.location && (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground">
+                <MapPin className="size-3.5" aria-hidden="true" />
+                {contributor.location}
+              </span>
+            )}
+            {websiteUrl && (
+              <a
+                href={websiteUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-accent/50 hover:text-accent-text"
+              >
+                <ExternalLink className="size-3.5" aria-hidden="true" />
+                Website
+              </a>
+            )}
+            {contributor.twitter_username && (
+              <a
+                href={`https://x.com/${encodeURIComponent(contributor.twitter_username)}`}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-3 py-1.5 text-xs text-muted-foreground transition-colors hover:border-accent/50 hover:text-accent-text"
+              >
+                X @{contributor.twitter_username}
+              </a>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+function getWebsiteUrl(value: string): string | undefined {
+  const candidate = /^https?:\/\//i.test(value) ? value : `https://${value}`
+  try {
+    const url = new URL(candidate)
+    return url.protocol === 'http:' || url.protocol === 'https:'
+      ? url.toString()
+      : undefined
+  } catch {
+    return undefined
+  }
+}
+
+function ContributorAvatar({
+  contributor,
+  size,
+}: {
+  contributor: Contributor
+  size: string
+}) {
+  return contributor.avatar_url ? (
+    <img
+      src={contributor.avatar_url}
+      alt=""
+      className={`${size} shrink-0 rounded-xl border border-border object-cover`}
+      loading="lazy"
+    />
+  ) : (
+    <span
+      className={`${size} flex shrink-0 items-center justify-center rounded-xl border border-border bg-background text-muted-foreground`}
+      aria-hidden="true"
+    >
+      <UserRound className="size-1/2" />
+    </span>
+  )
+}
+
+function ProfileStat({ label, value }: { label: string; value: string | number }) {
+  return (
+    <div className="rounded-lg border border-border bg-background/60 p-3">
+      <dt className="text-xs text-muted-foreground">{label}</dt>
+      <dd className="mt-1 truncate font-mono text-lg font-semibold">{value}</dd>
+    </div>
+  )
+}
+
+function LeaderboardPagination({
+  currentPage,
+  pageCount,
+  pageSize,
+  totalCount,
+  onPageChange,
+}: {
+  currentPage: number
+  pageCount: number
+  pageSize: number
+  totalCount: number
+  onPageChange: (page: number) => void
+}) {
+  const pages = new Set<number>([1, pageCount])
+  for (
+    let page = Math.max(1, currentPage - 1);
+    page <= Math.min(pageCount, currentPage + 1);
+    page += 1
+  ) {
+    pages.add(page)
+  }
+  const visiblePages = [...pages].sort((left, right) => left - right)
+  const firstVisible = (currentPage - 1) * pageSize + 1
+  const lastVisible = Math.min(currentPage * pageSize, totalCount)
+
+  return (
+    <nav
+      className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between"
+      aria-label="Contributor leaderboard pages"
+    >
+      <p className="text-xs text-muted-foreground" aria-live="polite">
+        Showing{' '}
+        <span className="font-mono text-foreground">
+          {firstVisible.toLocaleString()}–{lastVisible.toLocaleString()}
+        </span>{' '}
+        of <span className="font-mono text-foreground">{totalCount.toLocaleString()}</span>
+      </p>
+      {pageCount > 1 && (
+        <div className="flex flex-wrap items-center gap-1">
+          <PaginationButton
+            label="Previous page"
+            disabled={currentPage === 1}
+            onClick={() => onPageChange(currentPage - 1)}
+          >
+            Previous
+          </PaginationButton>
+          {visiblePages.map((page, index) => {
+            const previousPage = visiblePages[index - 1]
+            return (
+              <span key={page} className="contents">
+                {previousPage !== undefined && page - previousPage > 1 && (
                   <span
-                    className={`rounded px-1.5 py-0.5 font-mono text-[9px] font-bold uppercase tracking-wider ${
-                      c.tier === 'Diamond'
-                        ? 'border border-violet-500/40 bg-violet-500/10 text-violet-400'
-                        : 'border border-amber-500/40 bg-amber-500/10 text-amber-400'
-                    }`}
+                    className="inline-flex size-9 items-center justify-center text-sm text-muted-foreground"
+                    aria-hidden="true"
                   >
-                    #{index + 1}
+                    …
                   </span>
-                </div>
+                )}
+                <PaginationButton
+                  label={`Page ${page}`}
+                  current={page === currentPage}
+                  onClick={() => onPageChange(page)}
+                >
+                  {page}
+                </PaginationButton>
+              </span>
+            )
+          })}
+          <PaginationButton
+            label="Next page"
+            disabled={currentPage === pageCount}
+            onClick={() => onPageChange(currentPage + 1)}
+          >
+            Next
+          </PaginationButton>
+        </div>
+      )}
+    </nav>
+  )
+}
 
-                <p className="mt-2.5 truncate text-xs text-muted-foreground">{c.role}</p>
+function PaginationButton({
+  children,
+  label,
+  current = false,
+  disabled = false,
+  onClick,
+}: {
+  children: ReactNode
+  label: string
+  current?: boolean
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-current={current ? 'page' : undefined}
+      disabled={disabled}
+      onClick={onClick}
+      className={`inline-flex min-h-9 min-w-9 items-center justify-center rounded-md border px-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-40 ${
+        current
+          ? 'border-accent bg-accent/10 text-accent-text'
+          : 'border-border bg-surface text-muted-foreground hover:border-accent/50 hover:text-foreground'
+      }`}
+    >
+      {children}
+    </button>
+  )
+}
 
-                {/* Stats */}
-                <div className="mt-3.5 grid grid-cols-2 gap-2 rounded-lg border border-border/60 bg-background/50 p-2.5 text-center">
-                  <div>
-                    <span className="font-mono text-sm font-bold text-foreground">
-                      {c.contributions.toLocaleString()}
-                    </span>
-                    <p className="text-[10px] text-muted-foreground">Contributions</p>
-                  </div>
-                  <div>
-                    <span className="font-mono text-sm font-bold text-sky-400">
-                      {c.mergedPRs}
-                    </span>
-                    <p className="text-[10px] text-muted-foreground">Merged PRs</p>
-                  </div>
-                </div>
-
-                {/* Languages */}
-                <div className="mt-3 flex flex-wrap gap-1">
-                  {c.topLanguages.map((lang) => (
-                    <span
-                      key={lang}
-                      className="rounded bg-surface px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground border border-border/60"
-                    >
-                      {lang}
-                    </span>
-                  ))}
-                </div>
-
-                {/* GitHub link button */}
-                <div className="mt-4 pt-3 border-t border-border/60">
-                  <a
-                    href={c.githubUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg border border-border bg-surface py-1.5 text-xs font-semibold transition-colors hover:border-accent hover:bg-surface/80"
-                  >
-                    <span>View GitHub Profile</span>
-                    <ExternalLink className="size-3 opacity-60" />
-                  </a>
-                </div>
-              </CardContent>
-            </Card>
-          )
-        })}
+function ContributorsLoading() {
+  return (
+    <div className="animate-fade-up space-y-7" aria-busy="true" aria-label="Loading contributors">
+      <div>
+        <Skeleton className="h-3 w-32" />
+        <Skeleton className="mt-3 h-8 w-52" />
+        <Skeleton className="mt-3 h-4 w-full max-w-xl" />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {[0, 1].map((item) => (
+          <Card key={item}>
+            <CardContent className="flex items-center gap-3 p-4 pt-4">
+              <Skeleton className="size-10 rounded-lg" />
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-24" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+      <Skeleton className="h-10 w-full max-w-lg" />
+      <div className="grid gap-3 md:grid-cols-3">
+        {[0, 1, 2].map((item) => (
+          <Card key={item}>
+            <CardContent className="space-y-4 p-5 pt-5">
+              <Skeleton className="h-6 w-24" />
+              <div className="flex items-center gap-3">
+                <Skeleton className="size-12 rounded-xl" />
+                <Skeleton className="h-5 w-36" />
+              </div>
+            </CardContent>
+          </Card>
+        ))}
       </div>
     </div>
   )
