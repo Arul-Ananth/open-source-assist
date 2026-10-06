@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import {
   Map,
   Target,
@@ -30,6 +30,7 @@ interface RoadmapData {
   milestones: RoadmapMilestone[]
   projects: RecommendedProject[]
   isLiveAi?: boolean
+  skillLevel?: string
 }
 
 export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
@@ -180,8 +181,9 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
         }
 
         const primaryLang = topLangs[0] || 'TypeScript'
+        const currentSkill = useAuthStore.getState().user?.skill_level || currentUser?.skill_level
         const dominantSkill =
-          currentUser?.skill_level ||
+          currentSkill ||
           (skills[0]?.level === 'expert' ? 'advanced' : skills[0]?.level) ||
           'intermediate'
 
@@ -210,7 +212,7 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
                 id: idx + 1,
                 title: mod.title,
                 description: mod.description,
-                status: idx === 0 ? 'completed' : idx === 1 ? 'current' : 'upcoming',
+                status: idx === 0 ? 'current' : 'upcoming',
                 skills:
                   mod.key_takeaways && mod.key_takeaways.length > 0
                     ? mod.key_takeaways.slice(0, 3)
@@ -227,7 +229,7 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
               id: 1,
               title: `Set Up Local Tooling for ${primaryLang}`,
               description: `Configure runtime, fork target repositories, and verify build/test suites.`,
-              status: 'completed',
+              status: 'current',
               skills: ['Git', primaryLang, 'Testing'],
               estimatedWeeks: 1,
             },
@@ -235,7 +237,7 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
               id: 2,
               title: `Tackle Your First Good-First-Issue`,
               description: `Navigate repo structure, adhere to contributing guidelines, and open an atomic PR.`,
-              status: 'current',
+              status: 'upcoming',
               skills: [primaryLang, 'Code Review', 'CI Checks'],
               estimatedWeeks: 2,
             },
@@ -250,8 +252,9 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
           ]
         }
 
-        // Apply saved localStorage progress if previously advanced
-        const savedProgress = localStorage.getItem(`roadmap_milestones_${username}`)
+        // Apply saved localStorage progress if previously advanced for this tier
+        const progressKey = `roadmap_milestones_${username}_${dominantSkill}`
+        const savedProgress = localStorage.getItem(progressKey)
         if (savedProgress) {
           try {
             const savedStatuses: Record<number, RoadmapMilestone['status']> = JSON.parse(savedProgress)
@@ -312,6 +315,7 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
           milestones,
           projects,
           isLiveAi,
+          skillLevel: dominantSkill,
         })
       } catch (err: unknown) {
         setErrorMessage(err instanceof Error ? err.message : 'Failed to analyze profile')
@@ -329,6 +333,15 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
     }
   }, [defaultUsername, handleAnalyze, data, isLoading])
 
+  // Automatically recalibrate roadmap when the user completes/retakes an assessment and skill_level updates
+  const lastSkillLevelRef = useRef(currentUser?.skill_level)
+  useEffect(() => {
+    if (defaultUsername && currentUser?.skill_level && currentUser.skill_level !== lastSkillLevelRef.current) {
+      lastSkillLevelRef.current = currentUser.skill_level
+      void handleAnalyze(defaultUsername)
+    }
+  }, [currentUser?.skill_level, defaultUsername, handleAnalyze])
+
   // Milestone Progression Handlers
   const handleAdvanceMilestone = (milestoneId: number) => {
     if (!data) return
@@ -343,13 +356,14 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
     })
     setData({ ...data, milestones: updated })
 
-    // Save to localStorage
+    // Save to localStorage scoped by user and tier
     const saved = updated.reduce<Record<number, RoadmapMilestone['status']>>((acc, m) => {
       acc[m.id] = m.status
       return acc
     }, {})
     if (analyzedUser) {
-      localStorage.setItem(`roadmap_milestones_${analyzedUser}`, JSON.stringify(saved))
+      const skillKey = data.skillLevel || currentUser?.skill_level || 'starter'
+      localStorage.setItem(`roadmap_milestones_${analyzedUser}_${skillKey}`, JSON.stringify(saved))
     }
   }
 
@@ -367,7 +381,8 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
       return acc
     }, {})
     if (analyzedUser) {
-      localStorage.setItem(`roadmap_milestones_${analyzedUser}`, JSON.stringify(saved))
+      const skillKey = data.skillLevel || currentUser?.skill_level || 'starter'
+      localStorage.setItem(`roadmap_milestones_${analyzedUser}_${skillKey}`, JSON.stringify(saved))
     }
   }
 
@@ -573,7 +588,15 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
                     variant="outline"
                     onClick={() => {
                       if (analyzedUser) {
-                        localStorage.removeItem(`roadmap_milestones_${analyzedUser}`)
+                        try {
+                          Object.keys(localStorage).forEach((k) => {
+                            if (k.startsWith(`roadmap_milestones_${analyzedUser}`)) {
+                              localStorage.removeItem(k)
+                            }
+                          })
+                        } catch {
+                          /* ignore */
+                        }
                         void handleAnalyze(analyzedUser)
                       }
                     }}
@@ -646,6 +669,11 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
         isOpen={isQuizModalOpen}
         onClose={() => setIsQuizModalOpen(false)}
         username={defaultUsername}
+        onCompleted={() => {
+          if (defaultUsername) {
+            void handleAnalyze(defaultUsername)
+          }
+        }}
       />
     </div>
   )

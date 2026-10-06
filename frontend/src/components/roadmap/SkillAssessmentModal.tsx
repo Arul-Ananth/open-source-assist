@@ -24,9 +24,15 @@ interface SkillAssessmentModalProps {
   isOpen: boolean
   onClose: () => void
   username?: string
+  onCompleted?: () => void
 }
 
-export function SkillAssessmentModal({ isOpen, onClose, username }: SkillAssessmentModalProps) {
+export function SkillAssessmentModal({
+  isOpen,
+  onClose,
+  username,
+  onCompleted,
+}: SkillAssessmentModalProps) {
   const token = useAuthStore((s) => s.token)
   const [loading, setLoading] = useState(false)
   const [evaluating, setEvaluating] = useState(false)
@@ -99,9 +105,25 @@ export function SkillAssessmentModal({ isOpen, onClose, username }: SkillAssessm
         token || undefined,
       )
       setResult(evaluation)
-      if (token) {
-        void useAuthStore.getState().refreshCurrentUser()
+
+      // Clear saved milestone progress for this user so retaking the assessment starts fresh
+      const targetUser = username || useAuthStore.getState().user?.username || useAuthStore.getState().user?.github_username
+      if (targetUser) {
+        try {
+          Object.keys(localStorage).forEach((k) => {
+            if (k.startsWith(`roadmap_milestones_${targetUser}`)) {
+              localStorage.removeItem(k)
+            }
+          })
+        } catch {
+          /* ignore */
+        }
       }
+
+      if (token) {
+        await useAuthStore.getState().refreshCurrentUser()
+      }
+      onCompleted?.()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Evaluation submission failed')
     } finally {

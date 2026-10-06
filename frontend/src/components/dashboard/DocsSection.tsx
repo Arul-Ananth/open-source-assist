@@ -175,7 +175,7 @@ export function DocsSection() {
               }}
               placeholder='Search the docs… try "pull request", rebase, license, GSoC…'
               aria-label="Search documentation"
-              className="h-11 pl-10 pr-10 text-sm"
+              className="h-11 search-input !pl-10 !pr-10 text-sm"
             />
             {query && (
               <button

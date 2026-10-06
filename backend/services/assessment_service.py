@@ -185,7 +185,17 @@ class AssessmentService:
                     msg = response.choices[0].message
                     parsed_output = msg.parsed if hasattr(msg, "parsed") and msg.parsed else StructuredQuestionGenOutput.model_validate_json(msg.content)
                     if parsed_output and parsed_output.questions:
-                        questions = parsed_output.questions
+                        # Validate that generated MCQs have at least 4 options
+                        is_valid = True
+                        for q in parsed_output.questions:
+                            if q.question_type == AssessmentQuestionType.MCQ:
+                                if not q.options or len(q.options) < 4:
+                                    is_valid = False
+                                    break
+                        if is_valid:
+                            questions = parsed_output.questions
+                        else:
+                            logger.warning("LiteLLM returned MCQ with < 4 options, using fallback questions")
             except Exception as exc:
                 logger.warning("LiteLLM question generation failed, using fallback generator: %s", exc)
 
