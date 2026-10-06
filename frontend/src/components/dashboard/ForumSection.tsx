@@ -144,10 +144,16 @@ export function ForumSection() {
       })
       setThreads(res.threads)
       setTotalThreads(res.total)
-      if (res.threads.length > 0 && selectedId === null) {
-        setSelectedId(res.threads[0].id)
-      } else if (res.threads.length === 0) {
+      if (res.threads.length > 0) {
+        setSelectedId((current) => {
+          if (current !== null && res.threads.some((t) => t.id === current)) {
+            return current
+          }
+          return res.threads[0].id
+        })
+      } else {
         setSelected(null)
+        setSelectedId(null)
       }
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : 'Could not load forum discussions')
@@ -182,13 +188,19 @@ export function ForumSection() {
       })
       .catch((reason: unknown) => {
         if (isCurrent) {
+          setSelected(null)
+          // If the thread was deleted or does not exist, reset to the first available discussion
+          setSelectedId((prev) => {
+            const fallback = threads.find((t) => t.id !== prev)?.id ?? null
+            return fallback
+          })
           setError(reason instanceof Error ? reason.message : 'Could not load the discussion')
         }
       })
     return () => {
       isCurrent = false
     }
-  }, [selectedId])
+  }, [selectedId, threads])
 
   // Create new thread
   const handleCreateThread = async (e: FormEvent) => {
