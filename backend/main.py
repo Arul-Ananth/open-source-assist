@@ -24,6 +24,7 @@ from backend.api.routes.learning import router as learning_router
 from backend.api.routes.projects import router as projects_router
 from backend.api.routes.roadmaps import router as roadmaps_router
 from backend.api.routes.search import router as search_router
+from backend.api.posts import router as posts_router
 from backend.api.routes.users import router as users_router
 from backend.core.config import settings
 from backend.core.database import engine, init_db, SessionLocal
@@ -100,6 +101,7 @@ app.include_router(events_router, prefix=settings.API_V1_PREFIX)
 app.include_router(airflow_router, prefix=settings.API_V1_PREFIX)
 app.include_router(users_router, prefix=settings.API_V1_PREFIX)
 app.include_router(roadmaps_router, prefix=settings.API_V1_PREFIX)
+app.include_router(posts_router, prefix=settings.API_V1_PREFIX)
 
 
 @app.get("/health", tags=["Health"])

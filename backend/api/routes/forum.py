@@ -3,7 +3,7 @@
 import uuid
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,10 +14,12 @@ from backend.models.user_model import User
 from backend.schemas.forum import (
     ForumPostCreateRequest,
     ForumPostItem,
+    ForumPostUpdateRequest,
     ForumThreadCreateRequest,
     ForumThreadItem,
     ForumThreadListResponse,
     ForumThreadSummary,
+    ForumThreadUpdateRequest,
 )
 from backend.services.forum_service import ForumService
 
@@ -61,6 +63,7 @@ async def _thread_item(db: AsyncSession, thread_id: int) -> ForumThreadItem:
 async def list_threads(
     db: Annotated[AsyncSession, Depends(get_db)],
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ForumThreadListResponse:
     """List recent forum threads with their reply counts."""
     rows = await db.execute(
@@ -70,6 +73,7 @@ async def list_threads(
         .group_by(ForumThread.id, User.id)
         .order_by(ForumThread.created_at.desc())
         .limit(limit)
+        .offset(offset)
     )
     return ForumThreadListResponse(
         threads=[
@@ -112,6 +116,43 @@ async def create_thread(
     return await _thread_item(db, thread.id)
 
 
+@router.patch("/threads/{thread_id}", response_model=ForumThreadItem)
+async def update_thread(
+    thread_id: int,
+    payload: ForumThreadUpdateRequest,
+    current_user: Annotated[dict[str, Any], Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> ForumThreadItem:
+    """Update a thread title when requested by its author."""
+    try:
+        await ForumService.update_thread(
+            db, thread_id, uuid.UUID(current_user["user_id"]), payload.title
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    return await _thread_item(db, thread_id)
+
+
+@router.delete("/threads/{thread_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_thread(
+    thread_id: int,
+    current_user: Annotated[dict[str, Any], Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """Delete a thread and its posts when requested by its author."""
+    try:
+        await ForumService.delete_thread(
+            db, thread_id, uuid.UUID(current_user["user_id"])
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
 @router.post(
     "/threads/{thread_id}/replies",
     response_model=ForumPostItem,
@@ -143,3 +184,64 @@ async def add_reply(
         content=post.content,
         created_at=post.created_at,
     )
+
+
+@router.patch(
+    "/threads/{thread_id}/posts/{post_id}",
+    response_model=ForumPostItem,
+)
+async def update_post(
+    thread_id: int,
+    post_id: int,
+    payload: ForumPostUpdateRequest,
+    current_user: Annotated[dict[str, Any], Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> ForumPostItem:
+    """Update a post when requested by its author."""
+    try:
+        post = await ForumService.update_post(
+            db,
+            thread_id,
+            post_id,
+            uuid.UUID(current_user["user_id"]),
+            payload.content,
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    author = await db.scalar(select(User).where(User.id == post.author_id))
+    if author is None:
+        raise HTTPException(status_code=404, detail="Author not found")
+    return ForumPostItem(
+        id=post.id,
+        author_id=str(author.id),
+        author_username=author.username,
+        author_email=author.email,
+        content=post.content,
+        created_at=post.created_at,
+    )
+
+
+@router.delete(
+    "/threads/{thread_id}/posts/{post_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_post(
+    thread_id: int,
+    post_id: int,
+    current_user: Annotated[dict[str, Any], Depends(get_current_user)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+) -> Response:
+    """Delete an authored reply; remove the whole thread to delete its opening post."""
+    try:
+        await ForumService.delete_post(
+            db, thread_id, post_id, uuid.UUID(current_user["user_id"])
+        )
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

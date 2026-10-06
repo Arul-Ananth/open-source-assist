@@ -52,11 +52,74 @@ class ForumService:
         return post
 
     @staticmethod
-    async def delete_thread(db: AsyncSession, thread_id: int) -> None:
+    async def update_thread(
+        db: AsyncSession, thread_id: int, author_id: uuid.UUID, title: str
+    ) -> ForumThread:
         thread = await ForumService.get_thread(db, thread_id)
         if thread is None:
             raise LookupError("Thread not found")
+        if thread.author_id != author_id:
+            raise PermissionError("You can only edit your own threads")
+        thread.title = title.strip()
+        await db.commit()
+        await db.refresh(thread)
+        return thread
+
+    @staticmethod
+    async def delete_thread(
+        db: AsyncSession, thread_id: int, author_id: uuid.UUID | None = None
+    ) -> None:
+        thread = await ForumService.get_thread(db, thread_id)
+        if thread is None:
+            raise LookupError("Thread not found")
+        if author_id is not None and thread.author_id != author_id:
+            raise PermissionError("You can only delete your own threads")
+        await db.execute(delete(ForumPost).where(ForumPost.thread_id == thread_id))
         await db.delete(thread)
+        await db.commit()
+
+    @staticmethod
+    async def update_post(
+        db: AsyncSession, thread_id: int, post_id: int, author_id: uuid.UUID, content: str
+    ) -> ForumPost:
+        post = await db.scalar(
+            select(ForumPost).where(
+                ForumPost.id == post_id,
+                ForumPost.thread_id == thread_id,
+            )
+        )
+        if post is None:
+            raise LookupError("Post not found")
+        if post.author_id != author_id:
+            raise PermissionError("You can only edit your own posts")
+        post.content = content.strip()
+        await db.commit()
+        await db.refresh(post)
+        return post
+
+    @staticmethod
+    async def delete_post(
+        db: AsyncSession, thread_id: int, post_id: int, author_id: uuid.UUID
+    ) -> None:
+        post = await db.scalar(
+            select(ForumPost).where(
+                ForumPost.id == post_id,
+                ForumPost.thread_id == thread_id,
+            )
+        )
+        if post is None:
+            raise LookupError("Post not found")
+        if post.author_id != author_id:
+            raise PermissionError("You can only delete your own posts")
+        opening_post = await db.scalar(
+            select(ForumPost.id)
+            .where(ForumPost.thread_id == thread_id)
+            .order_by(ForumPost.created_at.asc(), ForumPost.id.asc())
+            .limit(1)
+        )
+        if post.id == opening_post:
+            raise ValueError("Delete the thread to remove its opening post")
+        await db.delete(post)
         await db.commit()
 
     @staticmethod
@@ -89,8 +152,15 @@ class ForumService:
         return list(result.all())
 
     @staticmethod
-    async def list_threads(db: AsyncSession) -> list[ForumThread]:
-        result = await db.scalars(select(ForumThread).order_by(ForumThread.created_at.desc()))
+    async def list_threads(
+        db: AsyncSession, limit: int = 50, offset: int = 0
+    ) -> list[ForumThread]:
+        result = await db.scalars(
+            select(ForumThread)
+            .order_by(ForumThread.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
         return list(result.all())
 
     @staticmethod

@@ -104,3 +104,4 @@ airflow.db
 airflow.cfg
 airflow-webserver.pid
 logs/
+settings.json

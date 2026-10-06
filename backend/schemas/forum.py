@@ -14,6 +14,14 @@ class ForumThreadCreateRequest(BaseModel):
     content: str = Field(min_length=1, max_length=5000, description="Opening post content.")
 
 
+class ForumThreadUpdateRequest(BaseModel):
+    title: str = Field(min_length=3, max_length=200, description="Updated thread title.")
+
+
+class ForumPostUpdateRequest(BaseModel):
+    content: str = Field(min_length=1, max_length=5000, description="Updated post content.")
+
+
 class ForumPostItem(BaseModel):
     id: int = Field(description="Post identifier.")
     author_id: str = Field(description="Author UUID.")
