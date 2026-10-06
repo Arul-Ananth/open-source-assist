@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, type ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
   ArrowLeft,
@@ -25,6 +25,7 @@ export function ContributorsSection() {
   const [search, setSearch] = useState('')
   const [sortOrder, setSortOrder] = useState<ContributorSortOrder>('highest')
   const [selectedLogin, setSelectedLogin] = useState<string | null>(null)
+  const [currentPage, setCurrentPage] = useState(1)
   const query = useQuery({
     queryKey: ['contributors'],
     queryFn: ({ signal }) => fetchContributors(signal),
@@ -36,6 +37,11 @@ export function ContributorsSection() {
     () => searchAndSortContributors(contributors, search, sortOrder),
     [contributors, search, sortOrder],
   )
+  const pageSize = 25
+  const pageCount = Math.max(1, Math.ceil(matchingContributors.length / pageSize))
+  const activePage = Math.min(currentPage, pageCount)
+  const pageStart = (activePage - 1) * pageSize
+  const pageContributors = matchingContributors.slice(pageStart, pageStart + pageSize)
   const selectedContributor = selectedLogin
     ? contributors.find(
         (contributor) =>
@@ -132,7 +138,7 @@ export function ContributorsSection() {
             <p className="mt-1 text-xs text-muted-foreground">
               {hasSearchTerm
                 ? `${matchingContributors.length} matching ${matchingContributors.length === 1 ? 'contributor' : 'contributors'}`
-                  : 'Every contributor found in the database'}
+                : `${matchingContributors.length.toLocaleString()} contributors found in the database`}
             </p>
           </div>
           {query.isFetching && (
@@ -154,7 +160,10 @@ export function ContributorsSection() {
             <Input
               id="contributor-search"
               value={search}
-              onChange={(event) => setSearch(event.target.value)}
+              onChange={(event) => {
+                setSearch(event.target.value)
+                setCurrentPage(1)
+              }}
               placeholder="Search username, name, company, or location"
               autoComplete="off"
               className="pl-9 pr-10"
@@ -162,7 +171,10 @@ export function ContributorsSection() {
             {search && (
               <button
                 type="button"
-                onClick={() => setSearch('')}
+                onClick={() => {
+                  setSearch('')
+                  setCurrentPage(1)
+                }}
                 aria-label="Clear contributor search"
                 className="absolute right-2 top-1/2 inline-flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-background hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
@@ -184,6 +196,7 @@ export function ContributorsSection() {
                 value === 'alphabetical'
               ) {
                 setSortOrder(value)
+                setCurrentPage(1)
               }
             }}
             className="h-10 rounded-md border border-border bg-surface px-3 text-sm text-foreground outline-none transition-colors focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent sm:w-56"
@@ -195,17 +208,26 @@ export function ContributorsSection() {
         </div>
 
         {matchingContributors.length > 0 ? (
-          <div className="overflow-hidden rounded-lg border border-border bg-surface">
-            <ul className="divide-y divide-border" aria-label="Contributor rankings">
-              {matchingContributors.map((contributor) => (
-                <ContributorRow
-                  key={contributor.login}
-                  contributor={contributor}
-                  onSelect={() => setSelectedLogin(contributor.login)}
-                />
-              ))}
-            </ul>
-          </div>
+          <>
+            <div className="overflow-hidden rounded-lg border border-border bg-surface">
+              <ul className="divide-y divide-border" aria-label="Contributor rankings">
+                {pageContributors.map((contributor) => (
+                  <ContributorRow
+                    key={contributor.login}
+                    contributor={contributor}
+                    onSelect={() => setSelectedLogin(contributor.login)}
+                  />
+                ))}
+              </ul>
+            </div>
+            <LeaderboardPagination
+              currentPage={activePage}
+              pageCount={pageCount}
+              pageSize={pageSize}
+              totalCount={matchingContributors.length}
+              onPageChange={setCurrentPage}
+            />
+          </>
         ) : (
           <EmptyState
             icon={Users}
@@ -223,7 +245,10 @@ export function ContributorsSection() {
               search ? (
                 <button
                   type="button"
-                  onClick={() => setSearch('')}
+                  onClick={() => {
+                    setSearch('')
+                    setCurrentPage(1)
+                  }}
                   className="btn-secondary"
                 >
                   Clear search
@@ -539,6 +564,118 @@ function ProfileStat({ label, value }: { label: string; value: string | number }
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="mt-1 truncate font-mono text-lg font-semibold">{value}</dd>
     </div>
+  )
+}
+
+function LeaderboardPagination({
+  currentPage,
+  pageCount,
+  pageSize,
+  totalCount,
+  onPageChange,
+}: {
+  currentPage: number
+  pageCount: number
+  pageSize: number
+  totalCount: number
+  onPageChange: (page: number) => void
+}) {
+  const pages = new Set<number>([1, pageCount])
+  for (
+    let page = Math.max(1, currentPage - 1);
+    page <= Math.min(pageCount, currentPage + 1);
+    page += 1
+  ) {
+    pages.add(page)
+  }
+  const visiblePages = [...pages].sort((left, right) => left - right)
+  const firstVisible = (currentPage - 1) * pageSize + 1
+  const lastVisible = Math.min(currentPage * pageSize, totalCount)
+
+  return (
+    <nav
+      className="mt-4 flex flex-col gap-3 border-t border-border pt-4 sm:flex-row sm:items-center sm:justify-between"
+      aria-label="Contributor leaderboard pages"
+    >
+      <p className="text-xs text-muted-foreground" aria-live="polite">
+        Showing{' '}
+        <span className="font-mono text-foreground">
+          {firstVisible.toLocaleString()}–{lastVisible.toLocaleString()}
+        </span>{' '}
+        of <span className="font-mono text-foreground">{totalCount.toLocaleString()}</span>
+      </p>
+      {pageCount > 1 && (
+        <div className="flex flex-wrap items-center gap-1">
+          <PaginationButton
+            label="Previous page"
+            disabled={currentPage === 1}
+            onClick={() => onPageChange(currentPage - 1)}
+          >
+            Previous
+          </PaginationButton>
+          {visiblePages.map((page, index) => {
+            const previousPage = visiblePages[index - 1]
+            return (
+              <span key={page} className="contents">
+                {previousPage !== undefined && page - previousPage > 1 && (
+                  <span
+                    className="inline-flex size-9 items-center justify-center text-sm text-muted-foreground"
+                    aria-hidden="true"
+                  >
+                    …
+                  </span>
+                )}
+                <PaginationButton
+                  label={`Page ${page}`}
+                  current={page === currentPage}
+                  onClick={() => onPageChange(page)}
+                >
+                  {page}
+                </PaginationButton>
+              </span>
+            )
+          })}
+          <PaginationButton
+            label="Next page"
+            disabled={currentPage === pageCount}
+            onClick={() => onPageChange(currentPage + 1)}
+          >
+            Next
+          </PaginationButton>
+        </div>
+      )}
+    </nav>
+  )
+}
+
+function PaginationButton({
+  children,
+  label,
+  current = false,
+  disabled = false,
+  onClick,
+}: {
+  children: ReactNode
+  label: string
+  current?: boolean
+  disabled?: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      aria-current={current ? 'page' : undefined}
+      disabled={disabled}
+      onClick={onClick}
+      className={`inline-flex min-h-9 min-w-9 items-center justify-center rounded-md border px-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:cursor-not-allowed disabled:opacity-40 ${
+        current
+          ? 'border-accent bg-accent/10 text-accent-text'
+          : 'border-border bg-surface text-muted-foreground hover:border-accent/50 hover:text-foreground'
+      }`}
+    >
+      {children}
+    </button>
   )
 }
 
