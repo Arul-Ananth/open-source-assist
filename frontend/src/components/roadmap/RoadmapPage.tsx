@@ -20,6 +20,7 @@ import { RoadmapSkeleton } from './RoadmapSkeleton'
 import { SkillAssessmentModal } from './SkillAssessmentModal'
 import { Button } from '@/components/ui'
 import { useAuthStore } from '@/lib/auth-store'
+import { syncPersonalizedRoadmap, recordStepProgress } from '@/lib/roadmap-api'
 import type { GitHubUser, SkillAssessment, RoadmapMilestone, RecommendedProject } from '@/types/github'
 
 interface RoadmapData {
@@ -258,14 +259,63 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
           ]
         }
 
-        // Apply saved localStorage progress if previously advanced for this tier
+        // Step 3b: Synchronize personalized roadmap & milestones into PostgreSQL database
+        // and hydrate persisted step completion records for authenticated user
+        try {
+          const syncRes = await syncPersonalizedRoadmap({
+            userId: currentUser?.id,
+            language: primaryLang,
+            skillLevel: dominantSkill,
+            steps: milestones.map((m) => ({
+              day_number: m.id,
+              title: m.title,
+              description: m.description,
+              expected_duration_hours: m.estimatedWeeks * 10,
+              step_order: m.id,
+            })),
+          })
+
+          if (syncRes && Array.isArray(syncRes.steps) && syncRes.steps.length > 0) {
+            milestones = milestones.map((m, idx) => {
+              const dbStep =
+                syncRes.steps[idx] ||
+                syncRes.steps.find((s) => s.step_order === m.id || s.title === m.title)
+              const isCompleted = dbStep ? dbStep.completed : false
+              return {
+                ...m,
+                dbStepId: dbStep ? dbStep.id : undefined,
+                dbRoadmapId: syncRes.roadmap_id,
+                status: isCompleted ? ('completed' as const) : m.status,
+              }
+            })
+
+            // Recalibrate active milestone if some were completed in DB
+            let foundCurrent = false
+            milestones = milestones.map((m) => {
+              if (m.status === 'completed') return m
+              if (!foundCurrent) {
+                foundCurrent = true
+                return { ...m, status: 'current' as const }
+              }
+              return { ...m, status: 'upcoming' as const }
+            })
+          }
+        } catch {
+          // Gracefully continue with client-side state
+        }
+
+        // Apply saved localStorage progress if previously advanced for this tier (offline fallback / merge)
         const progressKey = `roadmap_milestones_${username}_${dominantSkill}`
         const savedProgress = localStorage.getItem(progressKey)
         if (savedProgress) {
           try {
             const savedStatuses: Record<number, RoadmapMilestone['status']> = JSON.parse(savedProgress)
             milestones = milestones.map((m) =>
-              savedStatuses[m.id] ? { ...m, status: savedStatuses[m.id] } : m,
+              m.status === 'completed'
+                ? m
+                : savedStatuses[m.id]
+                ? { ...m, status: savedStatuses[m.id] }
+                : m,
             )
           } catch {
             /* ignore invalid json */
@@ -356,6 +406,7 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
   // Milestone Progression Handlers
   const handleAdvanceMilestone = (milestoneId: number) => {
     if (!data) return
+    const targetMilestone = data.milestones.find((m) => m.id === milestoneId)
     const updated = data.milestones.map((m) => {
       if (m.id === milestoneId) {
         return { ...m, status: 'completed' as const }
@@ -376,6 +427,16 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
       const skillKey = data.skillLevel || currentUser?.skill_level || 'starter'
       localStorage.setItem(`roadmap_milestones_${analyzedUser}_${skillKey}`, JSON.stringify(saved))
     }
+
+    // Persist progress to backend PostgreSQL if user is authenticated and roadmap IDs are present
+    if (currentUser?.id && targetMilestone?.dbRoadmapId && targetMilestone?.dbStepId) {
+      void recordStepProgress({
+        userId: currentUser.id,
+        roadmapId: targetMilestone.dbRoadmapId,
+        stepId: targetMilestone.dbStepId,
+        completed: true,
+      })
+    }
   }
 
   const handleSetCurrentMilestone = (milestoneId: number) => {
@@ -394,6 +455,19 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
     if (analyzedUser) {
       const skillKey = data.skillLevel || currentUser?.skill_level || 'starter'
       localStorage.setItem(`roadmap_milestones_${analyzedUser}_${skillKey}`, JSON.stringify(saved))
+    }
+
+    if (currentUser?.id) {
+      updated.forEach((m) => {
+        if (m.dbRoadmapId && m.dbStepId) {
+          void recordStepProgress({
+            userId: currentUser.id!,
+            roadmapId: m.dbRoadmapId,
+            stepId: m.dbStepId,
+            completed: m.status === 'completed',
+          })
+        }
+      })
     }
   }
 
@@ -613,6 +687,18 @@ export function RoadmapPage({ embedded = false }: { embedded?: boolean } = {}) {
                           })
                         } catch {
                           /* ignore */
+                        }
+                        if (currentUser?.id && data?.milestones) {
+                          data.milestones.forEach((m) => {
+                            if (m.dbRoadmapId && m.dbStepId) {
+                              void recordStepProgress({
+                                userId: currentUser.id!,
+                                roadmapId: m.dbRoadmapId,
+                                stepId: m.dbStepId,
+                                completed: false,
+                              })
+                            }
+                          })
                         }
                         void handleAnalyze(analyzedUser)
                       }

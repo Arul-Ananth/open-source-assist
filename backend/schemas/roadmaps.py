@@ -111,3 +111,43 @@ class RoadmapProgressSummary(BaseModel):
     completed_steps: int
     percent_complete: float
     entries: list[ProgressResponse]
+
+
+# ── Personalized Roadmap Sync ──
+
+class PersonalizedRoadmapSyncStep(BaseModel):
+    day_number: int = Field(default=1, ge=1, description="Day/milestone number.")
+    title: str = Field(max_length=255, description="Step title.")
+    description: str | None = Field(default=None, description="Step description.")
+    expected_duration_hours: int | None = Field(default=None, ge=1)
+    step_order: int | None = Field(default=None, ge=1)
+
+
+class PersonalizedRoadmapSyncRequest(BaseModel):
+    user_id: uuid.UUID | None = Field(default=None, description="Optional user ID for progress lookup.")
+    language: str = Field(default="TypeScript", description="Target programming language.")
+    skill_level: str = Field(default="beginner", description="Developer skill level tier.")
+    steps: list[PersonalizedRoadmapSyncStep] = Field(
+        default_factory=list, description="Milestones to ensure in database."
+    )
+
+
+class PersonalizedStepItem(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    day_number: int
+    title: str
+    description: str | None = None
+    expected_duration_hours: int | None = None
+    step_order: int
+    completed: bool = False
+
+
+class PersonalizedRoadmapSyncResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    roadmap_id: int
+    name: str
+    description: str | None = None
+    steps: list[PersonalizedStepItem]
