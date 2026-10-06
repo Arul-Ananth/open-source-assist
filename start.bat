@@ -33,8 +33,8 @@ if not exist frontend\node_modules (
 echo [OK] Frontend dependencies ready.
 
 echo [4/4] Launching services...
-start "OpenSource Assist - Backend (Port 8000)" cmd /k "cd /d %~dp0 && uv run uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload"
-start "OpenSource Assist - Frontend (Port 5173)" cmd /k "cd /d %~dp0\frontend && npm run dev"
+start "OpenSource Assist - Backend (Port 8000)" cmd /k "uv run uvicorn backend.main:app --host 127.0.0.1 --port 8000 --reload"
+start "OpenSource Assist - Frontend (Port 5173)" cmd /k "cd /d frontend && node .\node_modules\vite\bin\vite.js --host 127.0.0.1 --port 5173"
 
 echo.
 echo ==========================================================

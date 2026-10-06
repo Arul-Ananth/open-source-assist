@@ -31,6 +31,18 @@
 			],
 			"isBackground": false,
 			"problemMatcher": []
+		},
+		{
+			"label": "Start Open Source Assist",
+			"type": "shell",
+			"command": "cmd.exe",
+			"args": [
+				"/c",
+				"start.bat"
+			],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "build"
 		}
 	]
 }

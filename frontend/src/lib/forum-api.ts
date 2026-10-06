@@ -56,6 +56,30 @@ export function createForumThread(token: string, title: string, content: string)
   return request('/threads', token, { method: 'POST', body: JSON.stringify({ title, content }) })
 }
 
+export function updateForumThread(token: string, threadId: number, title: string): Promise<ForumThread> {
+  return request(`/threads/${threadId}`, token, { method: 'PATCH', body: JSON.stringify({ title }) })
+}
+
+export function deleteForumThread(token: string, threadId: number): Promise<void> {
+  return request(`/threads/${threadId}`, token, { method: 'DELETE' })
+}
+
 export function replyToForumThread(token: string, threadId: number, content: string): Promise<ForumPost> {
   return request(`/threads/${threadId}/replies`, token, { method: 'POST', body: JSON.stringify({ content }) })
+}
+
+export function updateForumPost(
+  token: string,
+  threadId: number,
+  postId: number,
+  content: string,
+): Promise<ForumPost> {
+  return request(`/threads/${threadId}/posts/${postId}`, token, {
+    method: 'PATCH',
+    body: JSON.stringify({ content }),
+  })
+}
+
+export function deleteForumPost(token: string, threadId: number, postId: number): Promise<void> {
+  return request(`/threads/${threadId}/posts/${postId}`, token, { method: 'DELETE' })
 }

@@ -53,12 +53,12 @@ class ForumService:
 
     @staticmethod
     async def update_thread(
-        db: AsyncSession, thread_id: int, author_id: uuid.UUID, title: str
+        db: AsyncSession, thread_id: int, author_id: uuid.UUID, title: str, is_admin: bool = False
     ) -> ForumThread:
         thread = await ForumService.get_thread(db, thread_id)
         if thread is None:
             raise LookupError("Thread not found")
-        if thread.author_id != author_id:
+        if thread.author_id != author_id and not is_admin:
             raise PermissionError("You can only edit your own threads")
         thread.title = title.strip()
         await db.commit()
@@ -80,7 +80,12 @@ class ForumService:
 
     @staticmethod
     async def update_post(
-        db: AsyncSession, thread_id: int, post_id: int, author_id: uuid.UUID, content: str
+        db: AsyncSession,
+        thread_id: int,
+        post_id: int,
+        author_id: uuid.UUID,
+        content: str,
+        is_admin: bool = False,
     ) -> ForumPost:
         post = await db.scalar(
             select(ForumPost).where(
@@ -90,7 +95,7 @@ class ForumService:
         )
         if post is None:
             raise LookupError("Post not found")
-        if post.author_id != author_id:
+        if post.author_id != author_id and not is_admin:
             raise PermissionError("You can only edit your own posts")
         post.content = content.strip()
         await db.commit()
@@ -99,7 +104,7 @@ class ForumService:
 
     @staticmethod
     async def delete_post(
-        db: AsyncSession, thread_id: int, post_id: int, author_id: uuid.UUID
+        db: AsyncSession, thread_id: int, post_id: int, author_id: uuid.UUID, is_admin: bool = False
     ) -> None:
         post = await db.scalar(
             select(ForumPost).where(
@@ -109,7 +114,7 @@ class ForumService:
         )
         if post is None:
             raise LookupError("Post not found")
-        if post.author_id != author_id:
+        if post.author_id != author_id and not is_admin:
             raise PermissionError("You can only delete your own posts")
         opening_post = await db.scalar(
             select(ForumPost.id)
@@ -118,6 +123,9 @@ class ForumService:
             .limit(1)
         )
         if post.id == opening_post:
+            if is_admin:
+                await ForumService.delete_thread(db, thread_id)
+                return
             raise ValueError("Delete the thread to remove its opening post")
         await db.delete(post)
         await db.commit()

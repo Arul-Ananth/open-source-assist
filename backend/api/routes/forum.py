@@ -129,7 +129,11 @@ async def update_thread(
     """Update a thread title when requested by its author."""
     try:
         await ForumService.update_thread(
-            db, thread_id, uuid.UUID(current_user["user_id"]), payload.title
+            db,
+            thread_id,
+            uuid.UUID(current_user["user_id"]),
+            payload.title,
+            current_user.get("role") == "admin",
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -147,7 +151,9 @@ async def delete_thread(
     """Delete a thread and its posts when requested by its author."""
     try:
         await ForumService.delete_thread(
-            db, thread_id, uuid.UUID(current_user["user_id"])
+            db,
+            thread_id,
+            None if current_user.get("role") == "admin" else uuid.UUID(current_user["user_id"]),
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -208,6 +214,7 @@ async def update_post(
             post_id,
             uuid.UUID(current_user["user_id"]),
             payload.content,
+            current_user.get("role") == "admin",
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
@@ -239,7 +246,11 @@ async def delete_post(
     """Delete an authored reply; remove the whole thread to delete its opening post."""
     try:
         await ForumService.delete_post(
-            db, thread_id, post_id, uuid.UUID(current_user["user_id"])
+            db,
+            thread_id,
+            post_id,
+            uuid.UUID(current_user["user_id"]),
+            current_user.get("role") == "admin",
         )
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc)) from exc
