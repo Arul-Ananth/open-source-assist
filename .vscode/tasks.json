@@ -1,0 +1,36 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Run Open Source Assist Backend",
+			"type": "shell",
+			"command": "uv",
+			"args": [
+				"run",
+				"--link-mode",
+				"copy",
+				"uvicorn",
+				"backend.main:app",
+				"--host",
+				"127.0.0.1",
+				"--port",
+				"8000",
+				"--reload"
+			],
+			"isBackground": true,
+			"problemMatcher": []
+		},
+		{
+			"label": "Sync Backend Dependencies",
+			"type": "shell",
+			"command": "uv",
+			"args": [
+				"sync",
+				"--link-mode",
+				"copy"
+			],
+			"isBackground": false,
+			"problemMatcher": []
+		}
+	]
+}

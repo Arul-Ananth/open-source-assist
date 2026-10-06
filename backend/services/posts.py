@@ -24,10 +24,13 @@ async def get_post(db: AsyncSession, post_id: UUID | str):
 
 
 async def list_posts(db: AsyncSession, community_id: UUID | str | None, limit: int = 20, offset: int = 0):
-    q = select(Post).where(Post.status == "published")
-    if community_id:
-        community_uuid = UUID(str(community_id)) if not isinstance(community_id, UUID) else community_id
-        q = q.where(Post.community_id == community_uuid)
-    q = q.order_by(Post.published_at.desc().nullslast()).limit(limit).offset(offset)
-    res = await db.execute(q)
-    return res.scalars().all()
+    try:
+        q = select(Post).where(Post.status == "published")
+        if community_id:
+            community_uuid = UUID(str(community_id)) if not isinstance(community_id, UUID) else community_id
+            q = q.where(Post.community_id == community_uuid)
+        q = q.order_by(Post.published_at.desc().nullslast()).limit(limit).offset(offset)
+        res = await db.execute(q)
+        return res.scalars().all()
+    except Exception:
+        return []

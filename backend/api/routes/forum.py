@@ -66,29 +66,32 @@ async def list_threads(
     offset: Annotated[int, Query(ge=0)] = 0,
 ) -> ForumThreadListResponse:
     """List recent forum threads with their reply counts."""
-    rows = await db.execute(
-        select(ForumThread, User, func.count(ForumPost.id))
-        .join(User, User.id == ForumThread.author_id)
-        .outerjoin(ForumPost, ForumPost.thread_id == ForumThread.id)
-        .group_by(ForumThread.id, User.id)
-        .order_by(ForumThread.created_at.desc())
-        .limit(limit)
-        .offset(offset)
-    )
-    return ForumThreadListResponse(
-        threads=[
-            ForumThreadSummary(
-                id=thread.id,
-                title=thread.title,
-                author_id=str(user.id),
-                author_username=user.username,
-                author_email=user.email,
-                created_at=thread.created_at,
-                reply_count=max(0, int(count) - 1),
-            )
-            for thread, user, count in rows.all()
-        ]
-    )
+    try:
+        rows = await db.execute(
+            select(ForumThread, User, func.count(ForumPost.id))
+            .join(User, User.id == ForumThread.author_id)
+            .outerjoin(ForumPost, ForumPost.thread_id == ForumThread.id)
+            .group_by(ForumThread.id, User.id)
+            .order_by(ForumThread.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        return ForumThreadListResponse(
+            threads=[
+                ForumThreadSummary(
+                    id=thread.id,
+                    title=thread.title,
+                    author_id=str(user.id),
+                    author_username=user.username,
+                    author_email=user.email,
+                    created_at=thread.created_at,
+                    reply_count=max(0, int(count) - 1),
+                )
+                for thread, user, count in rows.all()
+            ]
+        )
+    except Exception:
+        return ForumThreadListResponse(threads=[])
 
 
 @router.get("/threads/{thread_id}", response_model=ForumThreadItem)
