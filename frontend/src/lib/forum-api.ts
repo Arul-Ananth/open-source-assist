@@ -2,8 +2,7 @@ export interface ForumPost {
   id: number
   author_id: string
   author_username: string | null
-  /** Public display name — username or masked email; never a raw email. */
-  author_display?: string
+  author_email: string
   content: string
   created_at: string
 }
@@ -13,8 +12,7 @@ export interface ForumThread {
   title: string
   author_id: string
   author_username: string | null
-  /** Public display name — username or masked email; never a raw email. */
-  author_display?: string
+  author_email: string
   created_at: string
   replies: ForumPost[]
 }
@@ -24,8 +22,7 @@ export interface ForumThreadSummary {
   title: string
   author_id: string
   author_username: string | null
-  /** Public display name — username or masked email; never a raw email. */
-  author_display?: string
+  author_email: string
   created_at: string
   reply_count: number
 }
