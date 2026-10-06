@@ -1,4 +1,4 @@
-﻿export interface GitHubUser {
+export interface GitHubUser {
   login: string
   avatar_url: string
   name: string | null
@@ -39,6 +39,8 @@ export interface RoadmapMilestone {
   status: 'completed' | 'current' | 'upcoming' | 'locked'
   skills: string[]
   estimatedWeeks: number
+  dbStepId?: number
+  dbRoadmapId?: number
 }
 
 export interface RecommendedProject {

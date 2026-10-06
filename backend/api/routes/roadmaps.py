@@ -9,6 +9,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.core.database import get_db
 from backend.schemas.roadmaps import (
+    PersonalizedRoadmapSyncRequest,
+    PersonalizedRoadmapSyncResponse,
     ProgressCreate,
     ProgressResponse,
     ProgressUpdate,
@@ -27,6 +29,26 @@ router = APIRouter(tags=["Roadmaps"])
 
 
 # ── Roadmap CRUD ──
+
+
+@router.post(
+    "/roadmaps/personalized",
+    response_model=PersonalizedRoadmapSyncResponse,
+    summary="Ensure personalized roadmap exists and fetch user progress",
+)
+async def sync_personalized_roadmap(
+    payload: PersonalizedRoadmapSyncRequest,
+    session: AsyncSession = Depends(get_db),
+) -> PersonalizedRoadmapSyncResponse:
+    """Ensure a personalized roadmap track exists in PostgreSQL and return user progress."""
+    data = await roadmap_service.ensure_personalized_roadmap(
+        session,
+        language=payload.language,
+        skill_level=payload.skill_level,
+        steps=payload.steps,
+        user_id=payload.user_id,
+    )
+    return PersonalizedRoadmapSyncResponse.model_validate(data)
 
 
 @router.post(

@@ -42,6 +42,7 @@ Services started:
 | **[4. Teammate Integration Guide](doc/integration/search_integration_backend.md)** | Integration guide for teammate modules (Ingestion, RAG, and Auth hooks). |
 | **[5. Deployment & Operations](doc/deployment_and_operations.md)** | Docker Compose configuration, Qdrant Cloud deployment, environment configuration, database seeding, and testing with `uv`. |
 | **[6. API Contract & Changelog](API_CONTRACT.md)** | Formal versioned API contracts, HTTP endpoints, status codes, and request/response JSON schemas. |
+| **[7. Database Design & Schemas](doc/database_design.md)** | Complete PostgreSQL relational ER diagrams, constraints reference, and Qdrant vector database topology. |
 
 ---
 
