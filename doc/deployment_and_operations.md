@@ -79,20 +79,52 @@ Successfully indexed 6 repositories into collection 'open_source_repositories' i
 
 ---
 
-## 5. Starting the FastAPI Backend
+## 5. Relational Database Setup (PostgreSQL)
 
-Run the server with Uvicorn (hot-reload enabled for development):
-```bash
-uv run uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+Configure PostgreSQL in `.env`:
+```env
+POSTGRES_HOST=localhost # or AWS RDS endpoint
+POSTGRES_PORT=5432
+POSTGRES_DB=open_source_assist
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
 ```
 
-* **Interactive API Docs (Swagger UI)**: `http://localhost:8000/docs`
-* **Alternative API Docs (ReDoc)**: `http://localhost:8000/redoc`
-* **Health Check**: `http://localhost:8000/health`
+Run Alembic schema migrations:
+```bash
+uv run alembic upgrade head
+```
 
 ---
 
-## 6. Running Automated Tests
+## 6. Starting the Full Stack
+
+### Option A: One-Click Launch (Recommended)
+**Windows (PowerShell):**
+```powershell
+.\start.ps1
+```
+This automatically verifies migrations, launches the FastAPI backend on port 8000, and boots the Vite React frontend on port 5173.
+
+### Option B: Manual Process Management
+1. **Backend Server**:
+   ```bash
+   uv run uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+   ```
+   * **Interactive API Docs (Swagger UI)**: `http://localhost:8000/docs`
+   * **Health Check**: `http://localhost:8000/health`
+
+2. **Frontend UI**:
+   ```bash
+   cd frontend
+   npm install
+   npm run dev
+   ```
+   * **Application**: `http://localhost:5173`
+
+---
+
+## 7. Running Automated Tests
 
 Run the full automated test suite using `uv`:
 ```bash
@@ -104,5 +136,5 @@ To run with verbose output:
 uv run pytest backend/tests -v
 ```
 
-All 7 unit and integration tests run in ~2–3 seconds without requiring external background daemons.
+All 50+ unit and integration tests execute concurrently against mocked and isolated fixtures.
 

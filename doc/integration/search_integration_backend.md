@@ -65,26 +65,21 @@ If a teammate is building an AI Mentor, Question Answering, or RAG (Retrieval-Au
 
 ---
 
-## 3. Authentication & User Module (Teammate)
+## 3. Authentication & User Integration
 
-The search subsystem is functional for guest and unauthenticated users by default.
+The search subsystem supports both guest access and authenticated personalization.
 
-### Plugging in Authentication
-In [`backend/api/dependencies.py`](../backend/api/dependencies.py), there is a dedicated dependency hook:
+### Live Authentication Dependency
+In [`backend/api/dependencies.py`](../../backend/api/dependencies.py), the `get_optional_current_user` dependency automatically inspects bearer credentials:
 
 ```python
 async def get_optional_current_user(
-    authorization: str | None = Header(default=None),
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer_security)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ) -> dict[str, Any] | None:
-    if authorization and authorization.startswith("Bearer "):
-        token = authorization.split(" ", 1)[1]
-        # Replace with your JWT decoding function:
-        # return decode_user_jwt(token)
-        return {"user_id": "authenticated_user", "token": token}
-    return None
+    ...
 ```
 
-When the Auth teammate finishes the JWT/session service:
-1. Replace this stub with their JWT verification logic.
-2. The search route will automatically receive the authenticated user's `user_id` to log search history or apply user-specific preferred languages without changing the search router code.
+* **Guest Users**: When no `Authorization` header is present, the function returns `None`. Search proceeds in pure local semantic mode against Qdrant without blocking.
+* **Authenticated Users**: The token is decoded and validated against PostgreSQL `users`. The user's GitHub username and skill context are attached, enabling dual-tier hybrid search with GitHub API and personalized language weighting.
 

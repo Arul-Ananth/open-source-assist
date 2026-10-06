@@ -236,7 +236,11 @@ This document tracks all FastAPI endpoint contracts, request payloads, and respo
       "What are the best practices for unit testing this async handler?"
     ],
     "duration_ms": 115.4,
-  ---
+    "model_used": "gemini-3.5-flash"
+  }
+  ```
+
+---
 
 ## [v0.4.0] - 2026-09-30: GitHub-Grounded Skill Assessment & User Context Synthesis
 
@@ -319,6 +323,336 @@ This document tracks all FastAPI endpoint contracts, request payloads, and respo
   }
   ```
 
+---
 
+## [v0.5.0] - 2026-10-02: GitHub Metrics & Contributor Aggregation Endpoints
 
+### 12. Get Aggregated GitHub User Profile & Contribution Heatmap
+* **Endpoint**: `GET /api/v1/github/user-profile/{username}`
+* **Status**: `200 OK`
+* **Description**: Fetches public GitHub user metrics, activity, badges, unlocked tiers, and contribution heatmap.
+* **Response Body**:
+  ```json
+  {
+    "user": {
+      "login": "octocat",
+      "name": "Mona Lisa Octocat",
+      "avatar_url": "https://github.com/octocat.png",
+      "html_url": "https://github.com/octocat",
+      "bio": "GitHub mascot",
+      "public_repos": 8,
+      "followers": 1500,
+      "following": 9,
+      "created_at": "2011-01-25T18:44:36Z",
+      "location": "San Francisco",
+      "company": "@github"
+    },
+    "points": {
+      "total": 1250,
+      "rank": "Top 12% · Silver Contributor",
+      "tier": "Silver",
+      "breakdown": {
+        "repos": 280,
+        "commits": 450,
+        "events": 300,
+        "followers": 220
+      }
+    },
+    "languages": [
+      { "name": "TypeScript", "count": 5, "percentage": 62.5, "color": "#3178c6" },
+      { "name": "Python", "count": 3, "percentage": 37.5, "color": "#3572A5" }
+    ],
+    "badges": [
+      { "id": "repo_architect", "name": "Repo Architect", "unlocked": true, "unlocked_at": "September 2026" }
+    ],
+    "recent_activity": [
+      {
+        "id": "act_1",
+        "type": "push",
+        "title": "Pushed 2 commits",
+        "repo": "octocat/Hello-World",
+        "repo_url": "https://github.com/octocat/Hello-World",
+        "detail": "Fix typos and update README",
+        "time_display": "2 hours ago",
+        "icon": "GitCommit"
+      }
+    ],
+    "heatmap": {
+      "total_contributions": 142,
+      "current_streak_days": 4,
+      "weeks": [
+        [
+          { "date": "2026-09-01", "count": 3, "level": 2 }
+        ]
+      ]
+    }
+  }
+  ```
 
+### 13. Batch Get Cached Repository Contributors
+* **Endpoint**: `POST /api/v1/github/contributors/batch`
+* **Status**: `200 OK`
+* **Request Body** (`ContributorsBatchRequest`):
+  ```json
+  {
+    "repos": ["tiangolo/fastapi", "pallets/flask"]
+  }
+  ```
+* **Response Body** (`ContributorsBatchResponse`):
+  ```json
+  {
+    "contributors": {
+      "tiangolo/fastapi": [
+        {
+          "login": "tiangolo",
+          "avatar_url": "https://avatars.githubusercontent.com/u/1326112",
+          "html_url": "https://github.com/tiangolo",
+          "contributions": 2840
+        }
+      ]
+    },
+    "rate_limited": false
+  }
+  ```
+
+---
+
+## [v0.6.0] - 2026-10-03: GitHub OAuth Authentication Endpoints
+
+### 14. Get GitHub OAuth URL
+* **Endpoint**: `GET /api/v1/auth/github/url`
+* **Status**: `200 OK`
+* **Response Body** (`GitHubAuthUrlResponse`):
+  ```json
+  {
+    "configured": true,
+    "url": "https://github.com/login/oauth/authorize?client_id=...&scope=read:user,user:email",
+    "has_pat": true
+  }
+  ```
+
+### 15. GitHub OAuth Code Exchange & Login
+* **Endpoint**: `POST /api/v1/auth/github/callback`
+* **Status**: `200 OK`
+* **Request Body** (`GitHubCodeRequest`):
+  ```json
+  {
+    "code": "gh_oauth_temp_code_123"
+  }
+  ```
+* **Response Body** (`AuthResponse`):
+  ```json
+  {
+    "access_token": "<jwt_access_token>",
+    "token_type": "bearer",
+    "user": {
+      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "email": "user@github.com",
+      "username": "octocat",
+      "role": "user",
+      "account_status": "active"
+    }
+  }
+  ```
+
+### 16. Development PAT Login
+* **Endpoint**: `POST /api/v1/auth/github/pat-login`
+* **Status**: `200 OK`
+* **Description**: Authenticates or links a development user session using the server-configured GitHub Personal Access Token.
+* **Response Body** (`AuthResponse`):
+  ```json
+  {
+    "access_token": "<jwt_access_token>",
+    "token_type": "bearer",
+    "user": {
+      "id": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
+      "email": "dev@opensourceassist.org",
+      "username": "dev-user",
+      "role": "admin",
+      "account_status": "active"
+    }
+  }
+  ```
+
+---
+
+## [v0.7.0] - 2026-10-04: Community & Administrator Events Endpoints
+
+### 17. List Community Events
+* **Endpoint**: `GET /api/v1/events`
+* **Status**: `200 OK`
+* **Query Parameters**:
+  * `event_type`: Filter by event category (`Meetup`, `Hackathon`, `Conference`)
+  * `mode`: Filter by format (`Online`, `Offline`)
+  * `company`: Search by organizing entity
+  * `limit`: Page limit (default `100`)
+  * `offset`: Page offset (default `0`)
+* **Response Body** (`EventListResponse`):
+  ```json
+  {
+    "events": [
+      {
+        "id": 1,
+        "name": "Global Open Source Summit 2026",
+        "type": "Conference",
+        "date": "2026-11-15",
+        "time": "14:00",
+        "mode": "Online",
+        "location": "",
+        "organizer": "Open Source Initiative",
+        "application_url": "https://summit.opensource.org"
+      }
+    ]
+  }
+  ```
+
+### 18. Create Event (Admin Only)
+* **Endpoint**: `POST /api/v1/admin/events`
+* **Status**: `201 Created`
+* **Headers**: `Authorization: Bearer <admin_jwt>`
+* **Request Body** (`EventCreateRequest`):
+  ```json
+  {
+    "name": "FastAPI Workshop",
+    "organizer": "Python Community",
+    "type": "Workshop",
+    "mode": "Online",
+    "location": "",
+    "date": "2026-12-01",
+    "time": "18:00",
+    "application_url": "https://meetup.com/fastapi-workshop"
+  }
+  ```
+* **Response Body** (`EventItem`): Same as event item structure.
+
+### 19. Delete / Clean Up Ended Events (Admin Only)
+* **Endpoint**: `DELETE /api/v1/admin/events/ended`
+* **Status**: `200 OK`
+* **Headers**: `Authorization: Bearer <admin_jwt>`
+* **Response Body**:
+  ```json
+  {
+    "deleted_count": 4,
+    "message": "Successfully pruned 4 past events"
+  }
+  ```
+
+---
+
+## [v0.8.0] - 2026-10-04: Community Forum & Discussion Endpoints
+
+### 20. List Forum Threads
+* **Endpoint**: `GET /api/v1/forum/threads`
+* **Status**: `200 OK`
+* **Query Parameters**: `category` (optional), `limit` (default `50`), `offset` (default `0`)
+* **Response Body**:
+  ```json
+  {
+    "threads": [
+      {
+        "id": "thread_abc123",
+        "title": "Best practices for contributing to Rust crates",
+        "category": "Discussions",
+        "author_username": "ferris",
+        "created_at": "2026-10-03T12:00:00Z",
+        "replies_count": 8,
+        "views_count": 142
+      }
+    ]
+  }
+  ```
+
+### 21. Create Discussion Thread
+* **Endpoint**: `POST /api/v1/forum/threads`
+* **Status**: `201 Created`
+* **Headers**: `Authorization: Bearer <jwt>`
+* **Request Body**:
+  ```json
+  {
+    "title": "Tips on getting PR reviews in popular repos",
+    "category": "Mentorship",
+    "body": "What are your recommended strategies for polite follow-ups?"
+  }
+  ```
+
+---
+
+## [v0.9.0] - 2026-10-05: Roadmaps & Progress Tracking Endpoints
+
+### 22. List Curated Roadmaps
+* **Endpoint**: `GET /api/v1/roadmaps`
+* **Status**: `200 OK`
+* **Response Body**:
+  ```json
+  [
+    {
+      "id": "roadmap_python_backend",
+      "title": "Python Microservices Contributor",
+      "description": "Step-by-step pathway from basic scripting to production async libraries.",
+      "level": "intermediate",
+      "estimated_weeks": 8,
+      "steps_count": 6
+    }
+  ]
+  ```
+
+### 23. Record Step Progress
+* **Endpoint**: `POST /api/v1/progress`
+* **Status**: `200 OK`
+* **Headers**: `Authorization: Bearer <jwt>`
+* **Request Body**:
+  ```json
+  {
+    "roadmap_id": "roadmap_python_backend",
+    "step_id": "step_async_patterns",
+    "completed": true
+  }
+  ```
+* **Response Body**:
+  ```json
+  {
+    "progress_id": "prog_xyz",
+    "status": "completed",
+    "updated_at": "2026-10-05T15:30:00Z"
+  }
+  ```
+
+---
+
+## [v0.10.0] - 2026-10-05: Projects & Contributor Directory Endpoints
+
+### 24. List Synced Projects
+* **Endpoint**: `GET /api/v1/projects`
+* **Status**: `200 OK`
+* **Query Parameters**: `language`, `search`, `limit` (default `20`, max `500`), `offset`
+* **Response Body**:
+  ```json
+  {
+    "projects": [
+      {
+        "id": "proj_fastapi",
+        "full_name": "tiangolo/fastapi",
+        "description": "FastAPI framework, high performance, easy to learn",
+        "stars": 75420,
+        "forks": 6400,
+        "language": "Python",
+        "open_issues": 412,
+        "html_url": "https://github.com/tiangolo/fastapi"
+      }
+    ],
+    "total": 120
+  }
+  ```
+
+### 25. Trigger Airflow Ingestion DAG
+* **Endpoint**: `POST /api/v1/airflow/trigger`
+* **Status**: `202 Accepted`
+* **Description**: Manually triggers the `github_sync_weekly` Apache Airflow DAG to synchronize repositories and refresh contributor vectors.
+* **Response Body**:
+  ```json
+  {
+    "status": "triggered",
+    "dag_id": "github_sync_weekly",
+    "execution_date": "2026-10-05T16:00:00Z"
+  }
+  ```
