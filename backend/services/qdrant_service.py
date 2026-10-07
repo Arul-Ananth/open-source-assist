@@ -69,7 +69,7 @@ class QdrantService:
             host = parsed.hostname or "127.0.0.1"
             port = parsed.port or (6333 if parsed.scheme == "http" else 443)
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-                s.settimeout(0.2)
+                s.settimeout(settings.QDRANT_TIMEOUT_SECONDS)
                 return s.connect_ex((host, port)) == 0
         except Exception:
             return False
