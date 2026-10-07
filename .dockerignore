@@ -1,0 +1,35 @@
+# Git
+.git
+.gitignore
+
+# Python
+.venv
+__pycache__
+*.pyc
+.pytest_cache
+
+# Node
+frontend/node_modules
+
+# IDE
+.vscode
+.idea
+.claude
+
+# Env (loaded via env_file, not baked into image)
+.env
+
+# Docs
+*.md
+doc/
+!frontend/README.md
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Deployment scripts (not needed inside containers)
+deploy/
+devops/
+dags/
+data/
