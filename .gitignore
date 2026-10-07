@@ -104,3 +104,14 @@ airflow.db
 airflow.cfg
 airflow-webserver.pid
 logs/
+
+# =========================
+# Docker
+# =========================
+# Do NOT ignore Dockerfiles or docker-compose — they are committed.
+# Ignore runtime data that Docker volumes produce locally.
+
+# =========================
+# Claude Code
+# =========================
+.claude/

@@ -13,20 +13,20 @@ def create_tables() -> None:
     from backend.core.database import init_db
     asyncio.run(init_db())
 def run_full_sync() -> dict[str, int]:
-    from backend.core.database import async_session_factory
+    from backend.core.database import SessionLocal
     from backend.services.github_client import GitHubClient
     from backend.services.github_sync_service import sync_github
     async def _sync() -> dict[str, int]:
-        async with async_session_factory() as session:
+        async with SessionLocal() as session:
             async with GitHubClient() as client:
                 return await sync_github(session, client)
     return asyncio.run(_sync())
 def run_contributor_sync() -> int:
-    from backend.core.database import async_session_factory
+    from backend.core.database import SessionLocal
     from backend.services.github_client import GitHubClient
     from backend.services.github_sync_service import sync_contributors
     async def _sync() -> int:
-        async with async_session_factory() as session:
+        async with SessionLocal() as session:
             async with GitHubClient() as client:
                 return await sync_contributors(session, client)
     return asyncio.run(_sync())
