@@ -24,11 +24,13 @@ error() { echo -e "${RED}[ERROR]${NC} $*"; exit 1; }
 [[ $EUID -eq 0 ]] || error "Run this script with sudo."
 
 # ── Prompt for configuration ──
-read -rp "Enter your domain name (e.g. opensourceassist.com): " DOMAIN
-[[ -z "$DOMAIN" ]] && error "Domain name is required."
+read -rp "Enter your domain name (or leave empty/enter IP for HTTP-only demo): " DOMAIN
+DOMAIN="${DOMAIN:-}"
 
-read -rp "Enter your email for Let's Encrypt SSL certificate: " EMAIL
-[[ -z "$EMAIL" ]] && error "Email is required for SSL."
+EMAIL=""
+if [[ -n "$DOMAIN" && ! "$DOMAIN" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    read -rp "Enter your email for Let's Encrypt SSL certificate: " EMAIL
+fi
 
 APP_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 info "Project directory: $APP_DIR"
@@ -122,63 +124,14 @@ docker compose -f docker-compose.prod.yml exec backend uv run alembic upgrade he
     warn "Alembic migration skipped (may already be up to date)."
 
 # ═══════════════════════════════════════════════════════════════
-# 6. NGINX REVERSE PROXY (Host-Level with SSL)
+# 6. NGINX REVERSE PROXY
 # ═══════════════════════════════════════════════════════════════
-info "Configuring Nginx reverse proxy for $DOMAIN..."
+SERVER_NAME_VAL="${DOMAIN:-_}"
+info "Configuring Nginx reverse proxy for ${SERVER_NAME_VAL}..."
 
-cat > /etc/nginx/sites-available/open-source-assist <<NGINX_CONF
-# HTTP — used for Let's Encrypt challenge, then redirects to HTTPS
-server {
-    listen 80;
-    server_name $DOMAIN;
-
-    location /.well-known/acme-challenge/ {
-        root /var/www/certbot;
-    }
-
-    location / {
-        return 301 https://\$host\$request_uri;
-    }
-}
-
-# HTTPS — reverse proxy to Docker frontend container
-server {
-    listen 443 ssl http2;
-    server_name $DOMAIN;
-
-    ssl_certificate /etc/letsencrypt/live/$DOMAIN/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/$DOMAIN/privkey.pem;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-    ssl_prefer_server_ciphers on;
-
-    client_max_body_size 10M;
-
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_set_header Host \$host;
-        proxy_set_header X-Real-IP \$remote_addr;
-        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto https;
-        proxy_read_timeout 120s;
-        proxy_buffering off;
-    }
-}
-NGINX_CONF
-
-# Enable site
-ln -sf /etc/nginx/sites-available/open-source-assist /etc/nginx/sites-enabled/
-rm -f /etc/nginx/sites-enabled/default
-
-# Create certbot webroot
-mkdir -p /var/www/certbot
-
-# Test nginx config (will fail on SSL block if cert doesn't exist yet — that's ok)
-# First, get the cert with standalone or webroot before enabling SSL block
-info "Obtaining SSL certificate from Let's Encrypt..."
-
-# Temporarily use HTTP-only config for cert issuance
-cat > /etc/nginx/sites-available/open-source-assist <<TEMP_CONF
+if [[ -n "$DOMAIN" && -n "$EMAIL" && ! "$DOMAIN" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+    # Domain with SSL setup
+    cat > /etc/nginx/sites-available/open-source-assist <<TEMP_CONF
 server {
     listen 80;
     server_name $DOMAIN;
@@ -197,17 +150,44 @@ server {
 }
 TEMP_CONF
 
-nginx -t && systemctl restart nginx
+    ln -sf /etc/nginx/sites-available/open-source-assist /etc/nginx/sites-enabled/
+    rm -f /etc/nginx/sites-enabled/default
+    mkdir -p /var/www/certbot
 
-# Get the SSL certificate
-certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" --redirect
+    nginx -t && systemctl restart nginx
+    info "Obtaining SSL certificate from Let's Encrypt..."
+    certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m "$EMAIL" --redirect || warn "Certbot failed, continuing with HTTP."
+    nginx -t && systemctl reload nginx
 
-# Certbot rewrites the nginx config with SSL. Verify and reload.
-nginx -t && systemctl reload nginx
+    info "Setting up automatic SSL renewal..."
+    systemctl enable certbot.timer 2>/dev/null || \
+        (crontab -l 2>/dev/null; echo "0 3 * * * certbot renew --quiet && systemctl reload nginx") | crontab -
+else
+    # HTTP-only setup (suitable for IP address, testing, or cloud demo)
+    info "Configuring HTTP-only reverse proxy on port 80..."
+    cat > /etc/nginx/sites-available/open-source-assist <<HTTP_CONF
+server {
+    listen 80;
+    server_name _;
 
-info "Setting up automatic SSL renewal..."
-systemctl enable certbot.timer 2>/dev/null || \
-    (crontab -l 2>/dev/null; echo "0 3 * * * certbot renew --quiet && systemctl reload nginx") | crontab -
+    client_max_body_size 10M;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 120s;
+        proxy_buffering off;
+    }
+}
+HTTP_CONF
+
+    ln -sf /etc/nginx/sites-available/open-source-assist /etc/nginx/sites-enabled/
+    rm -f /etc/nginx/sites-enabled/default
+    nginx -t && systemctl restart nginx
+fi
 
 # ═══════════════════════════════════════════════════════════════
 # 7. DONE

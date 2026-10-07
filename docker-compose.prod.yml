@@ -2,15 +2,16 @@
 # Usage: docker compose -f docker-compose.prod.yml up -d --build
 
 services:
-  # ── PostgreSQL ──
+  # ── Optional Local PostgreSQL (Use profile 'local-db' if not using remote AWS RDS) ──
   postgres:
     image: postgres:16-alpine
     container_name: osa_postgres
     restart: unless-stopped
+    profiles: ["local-db"]
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-open_source_assist}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - pg_data:/var/lib/postgresql/data
     ports:
@@ -20,11 +21,12 @@ services:
       interval: 5s
       retries: 5
 
-  # ── Qdrant Vector DB ──
+  # ── Optional Local Qdrant (Use profile 'local-db' if not using Qdrant Cloud) ──
   qdrant:
     image: qdrant/qdrant:latest
     container_name: osa_qdrant
     restart: unless-stopped
+    profiles: ["local-db"]
     environment:
       - QDRANT__SERVICE__ENABLE_CORS=true
     volumes:
@@ -48,13 +50,8 @@ services:
     environment:
       ENVIRONMENT: production
       SERVER_RELOAD: "false"
-      POSTGRES_HOST: postgres
-      QDRANT_URL: http://qdrant:6333
-    depends_on:
-      postgres:
-        condition: service_healthy
-      qdrant:
-        condition: service_healthy
+      POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
+      QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
     ports:
       - "127.0.0.1:8000:8000"
 
