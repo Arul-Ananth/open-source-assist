@@ -165,7 +165,7 @@ export function AILearningModulesView() {
             </h2>
           </div>
           <span className="inline-flex items-center gap-1 rounded-sm border border-border bg-background px-2 py-0.5 font-mono text-xs text-muted-foreground">
-            LangGraph &amp; Gemini 1.5
+            LangGraph &amp; Gemini 3.5
           </span>
         </div>
 
