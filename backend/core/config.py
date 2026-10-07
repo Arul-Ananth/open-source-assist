@@ -139,6 +139,10 @@ class Settings(BaseSettings):
     QDRANT_VECTOR_SIZE: int = Field(
         default=384, description="Vector dimension matching the embedding model.",
     )
+    QDRANT_TIMEOUT_SECONDS: float = Field(
+        default=2.0,
+        description="Socket probe and connection timeout for Qdrant server in seconds.",
+    )
 
     # Embedding Configuration
     EMBEDDING_MODEL_NAME: str = Field(
