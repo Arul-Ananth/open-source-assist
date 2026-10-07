@@ -61,6 +61,27 @@ class Settings(BaseSettings):
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
         )
 
+    # Database Connection Pool Tuning (for horizontal pod scaling)
+    DB_POOL_SIZE: int = Field(
+        default=5,
+        ge=1,
+        description="SQLAlchemy connection pool size per pod/process.",
+    )
+    DB_MAX_OVERFLOW: int = Field(
+        default=5,
+        ge=0,
+        description="Maximum overflow connections per pod beyond DB_POOL_SIZE.",
+    )
+    DB_POOL_TIMEOUT: int = Field(
+        default=30,
+        ge=1,
+        description="Seconds to wait before giving up on acquiring a connection from the pool.",
+    )
+    RUN_MIGRATIONS_ON_STARTUP: bool = Field(
+        default=True,
+        description="Whether this pod should run schema checks/migrations on startup.",
+    )
+
     # JWT / OTP
     JWT_SECRET_KEY: str = Field(
         default="replace-with-a-long-random-secret-for-jwt-signing",

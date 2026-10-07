@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import datetime
+import json
 import logging
 import random
 import time
@@ -16,6 +17,7 @@ from typing import Any
 import httpx
 
 from backend.core.config import settings
+from backend.core.redis import get_redis_client
 from backend.schemas.assessment import GitHubProjectContext
 
 logger = logging.getLogger(__name__)
@@ -24,9 +26,32 @@ logger = logging.getLogger(__name__)
 CACHE_TTL_SUCCESS_SECONDS = 7200  # 2 hours
 CACHE_TTL_RATE_LIMITED_SECONDS = 900  # 15 minutes
 
-# In-memory cache structures
+# In-memory fallback cache structures
 _CONTRIBUTORS_CACHE: dict[str, tuple[float, list[dict[str, Any]]]] = {}
 _USER_STATS_CACHE: dict[str, tuple[float, dict[str, Any]]] = {}
+
+
+async def _cache_get_json(key: str) -> Any | None:
+    """Read a JSON object from shared Redis cache with graceful fallback."""
+    redis_client = get_redis_client()
+    if redis_client:
+        try:
+            val = await redis_client.get(key)
+            if val:
+                return json.loads(val)
+        except Exception as exc:
+            logger.debug("Redis cache get error for %s: %s", key, exc)
+    return None
+
+
+async def _cache_set_json(key: str, data: Any, ttl: int) -> None:
+    """Store a JSON-serializable object into shared Redis cache with graceful fallback."""
+    redis_client = get_redis_client()
+    if redis_client:
+        try:
+            await redis_client.set(key, json.dumps(data), ex=ttl)
+        except Exception as exc:
+            logger.debug("Redis cache set error for %s: %s", key, exc)
 
 # Pre-seeded curated contributors for standard dataset to eliminate GitHub API calls
 PRESEEDED_CONTRIBUTORS: dict[str, list[dict[str, Any]]] = {
@@ -156,6 +181,12 @@ class GitHubService:
                 result[repo_clean] = PRESEEDED_CONTRIBUTORS[repo_clean]
                 continue
 
+            # Check shared Redis cache
+            redis_cached = await _cache_get_json(f"gh:contribs:{repo_clean}")
+            if redis_cached:
+                result[repo_clean] = redis_cached
+                continue
+
             cached = _CONTRIBUTORS_CACHE.get(repo_clean)
             if cached and cached[0] > now:
                 result[repo_clean] = cached[1]
@@ -222,17 +253,24 @@ class GitHubService:
                                 now + CACHE_TTL_SUCCESS_SECONDS,
                                 parsed,
                             )
+                            await _cache_set_json(
+                                f"gh:contribs:{repo_clean}",
+                                parsed,
+                                CACHE_TTL_SUCCESS_SECONDS,
+                            )
                             continue
 
                     fallback = _owner_fallback(repo_clean)
                     result[repo_clean] = fallback
                     _CONTRIBUTORS_CACHE[repo_clean] = (now + 600, fallback)
+                    await _cache_set_json(f"gh:contribs:{repo_clean}", fallback, 600)
 
                 except Exception as exc:
                     logger.debug("Failed to fetch contributors for %s: %s", repo_clean, exc)
                     fallback = _owner_fallback(repo_clean)
                     result[repo_clean] = fallback
                     _CONTRIBUTORS_CACHE[repo_clean] = (now + 300, fallback)
+                    await _cache_set_json(f"gh:contribs:{repo_clean}", fallback, 300)
 
         return {"contributors": result, "rate_limited": rate_limited}
 
@@ -241,7 +279,14 @@ class GitHubService:
         """Fetch comprehensive GitHub user metrics, activity, badges, and heatmap."""
         clean_user = username.strip() if username else "contributor"
         now = time.time()
+        cache_key = f"gh:user_stats:{clean_user.lower()}"
 
+        # 1. Try shared Redis cluster cache first
+        redis_cached = await _cache_get_json(cache_key)
+        if redis_cached:
+            return redis_cached
+
+        # 2. Try in-memory fallback
         cached = _USER_STATS_CACHE.get(clean_user.lower())
         if cached and cached[0] > now:
             return cached[1]
@@ -618,6 +663,7 @@ class GitHubService:
         }
 
         _USER_STATS_CACHE[clean_user.lower()] = (now + 600, data_result)
+        await _cache_set_json(cache_key, data_result, ttl=600)
         return data_result
 
 
