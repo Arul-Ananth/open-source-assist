@@ -144,6 +144,20 @@ class Settings(BaseSettings):
         description="Socket probe and connection timeout for Qdrant server in seconds.",
     )
 
+    # Redis Configuration (Cache & Eviction-Safe OTP Store)
+    REDIS_URL: str = Field(
+        default="redis://127.0.0.1:6379/0",
+        description="Redis connection URL for caching, rate limiting, and OTPs.",
+    )
+    REDIS_MAX_MEMORY: str = Field(
+        default="64mb",
+        description="Maximum memory allocated to Redis cache.",
+    )
+    REDIS_MAX_MEMORY_POLICY: str = Field(
+        default="volatile-lru",
+        description="Eviction policy ensuring persistent keys without expiration are never evicted.",
+    )
+
     # Embedding Configuration
     EMBEDDING_MODEL_NAME: str = Field(
         default="BAAI/bge-small-en-v1.5",

@@ -39,6 +39,19 @@ services:
       interval: 10s
       retries: 5
 
+  # ── Redis (In-Memory Cache & OTP Store) ──
+  redis:
+    image: redis:7-alpine
+    container_name: osa_redis
+    restart: unless-stopped
+    command: ["redis-server", "--maxmemory", "64mb", "--maxmemory-policy", "volatile-lru", "--save", ""]
+    ports:
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 5
+
   # ── FastAPI Backend ──
   backend:
     build:
@@ -52,6 +65,10 @@ services:
       SERVER_RELOAD: "false"
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
       QDRANT_URL: ${QDRANT_URL:-http://qdrant:6333}
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      redis:
+        condition: service_healthy
     ports:
       - "127.0.0.1:8000:8000"
 

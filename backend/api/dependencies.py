@@ -45,11 +45,19 @@ async def get_optional_current_user(
     except (ValueError, TypeError):
         return None
 
+    # Check fast Redis cache first (<0.5ms vs 240ms RDS roundtrip)
+    cache_key = f"user:session:{user_id}"
+    from backend.core.redis import RedisCacheService
+    cached = await RedisCacheService.get(cache_key)
+    if cached is not None:
+        cached["token"] = token
+        return cached
+
     user = await db.scalar(select(User).where(User.id == user_id))
     if user is None or not user.is_active or getattr(user, "account_status", "active") != "active":
         return None
 
-    return {
+    user_dict = {
         "user_id": str(user.id),
         "email": user.email,
         "username": user.username,
@@ -61,6 +69,9 @@ async def get_optional_current_user(
         "github_access_token": getattr(user, "github_access_token", None),
         "token": token,
     }
+    # Cache user for 5 minutes (volatile LRU eviction)
+    await RedisCacheService.set(cache_key, user_dict, ttl_seconds=300)
+    return user_dict
 
 
 async def get_current_user(
