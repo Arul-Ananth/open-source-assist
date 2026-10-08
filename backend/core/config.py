@@ -7,7 +7,7 @@ and cloud deployment configurations.
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _ROOT_DIR = Path(__file__).resolve().parents[2]
@@ -100,7 +100,11 @@ class Settings(BaseSettings):
         default="0.0.0.0", description="Host interface for the Uvicorn server.",
     )
     SERVER_PORT: int = Field(
-        default=8000, ge=1, le=65535, description="Port for the Uvicorn server.",
+        default=8000,
+        validation_alias=AliasChoices("PORT", "SERVER_PORT"),
+        ge=1,
+        le=65535,
+        description="Port for the Uvicorn server.",
     )
     SERVER_RELOAD: bool = Field(
         default=True, description="Enable Uvicorn auto-reload.",

@@ -5,7 +5,7 @@ import os
 TEST_SETTINGS = {
     "ENVIRONMENT": "testing",
     "API_V1_PREFIX": "/api/v1",
-    "DATABASE_URL": "sqlite+aiosqlite://",
+    "DATABASE_URL": "postgresql+asyncpg://postgres:postgres@localhost:5432/open_source_assist_test",
     "JWT_SECRET_KEY": "test-secret-key",
     "JWT_ALGORITHM": "HS256",
     "ACCESS_TOKEN_EXPIRE_MINUTES": "120",
