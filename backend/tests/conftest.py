@@ -26,5 +26,11 @@ TEST_SETTINGS = {
     "DEFAULT_PAGE_LIMIT": "20",
 }
 
+# Respect configured DATABASE_URL from .env or environment
+from backend.core.config import settings
+
+if settings.DATABASE_URL:
+    TEST_SETTINGS["DATABASE_URL"] = settings.DATABASE_URL
+
 for key, value in TEST_SETTINGS.items():
     os.environ.setdefault(key, value)

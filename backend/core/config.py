@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     )
 
     # PostgreSQL Database Configuration
+    DATABASE_URL_OVERRIDE: str | None = Field(
+        default=None,
+        alias="DATABASE_URL",
+        description="Explicit async SQLAlchemy database URL. Overrides POSTGRES_* fields.",
+    )
     POSTGRES_HOST: str = Field(
         default="localhost",
         description="PostgreSQL host (e.g. AWS RDS endpoint).",
@@ -55,7 +60,23 @@ class Settings(BaseSettings):
 
     @property
     def DATABASE_URL(self) -> str:
-        """Construct the async PostgreSQL connection URL from individual fields."""
+        """Construct the async PostgreSQL connection URL."""
+        if self.DATABASE_URL_OVERRIDE and self.DATABASE_URL_OVERRIDE.strip():
+            url = self.DATABASE_URL_OVERRIDE.strip()
+            # Clean channel_binding parameter if present as asyncpg handles SSL natively
+            if "channel_binding=" in url:
+                import re
+                url = re.sub(r"[&?]channel_binding=[^&]*", "", url)
+                if "?" not in url and "&" in url:
+                    url = url.replace("&", "?", 1)
+            # asyncpg expects ssl= instead of sslmode=
+            if "sslmode=" in url:
+                url = url.replace("sslmode=", "ssl=")
+            if url.startswith("postgres://"):
+                url = url.replace("postgres://", "postgresql+asyncpg://", 1)
+            elif url.startswith("postgresql://") and not url.startswith("postgresql+"):
+                url = url.replace("postgresql://", "postgresql+asyncpg://", 1)
+            return url
         return (
             f"postgresql+asyncpg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}"
             f"@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"

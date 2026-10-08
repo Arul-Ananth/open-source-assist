@@ -8,8 +8,11 @@ from contextlib import asynccontextmanager
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
 
-from fastapi import FastAPI
+from pathlib import Path
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 
 from backend.api.auth import router as auth_router
 from backend.api.admin import router as admin_router
@@ -105,6 +108,39 @@ app.include_router(roadmaps_router, prefix=settings.API_V1_PREFIX)
 @app.get("/health", tags=["Health"])
 async def health_check() -> dict[str, str]:
     return {"status": "healthy", "service": "open-source-assist-backend"}
+
+
+# ---------------------------------------------------------------------------
+# Static frontend (production single-service deployment)
+# ---------------------------------------------------------------------------
+_FRONTEND_DIST = (Path(__file__).resolve().parents[1] / "frontend" / "dist").resolve()
+
+if (_FRONTEND_DIST / "assets").is_dir():
+    app.mount(
+        "/assets",
+        StaticFiles(directory=str(_FRONTEND_DIST / "assets")),
+        name="assets",
+    )
+
+
+@app.get("/{full_path:path}", include_in_schema=False)
+async def serve_spa(full_path: str) -> FileResponse:
+    """Serve built static files, falling back to index.html for SPA routes."""
+    if full_path.startswith(("api/", "docs", "redoc", "openapi.json")):
+        raise HTTPException(status_code=404, detail="Not Found")
+
+    if full_path:
+        candidate = (_FRONTEND_DIST / full_path).resolve()
+        if _FRONTEND_DIST in candidate.parents and candidate.is_file():
+            return FileResponse(candidate)
+
+    index = _FRONTEND_DIST / "index.html"
+    if index.is_file():
+        return FileResponse(index)
+    raise HTTPException(
+        status_code=404,
+        detail="Frontend build not found. Run 'npm run build' in frontend/.",
+    )
 
 
 if __name__ == "__main__":
