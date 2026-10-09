@@ -4,14 +4,12 @@ import {
   CalendarDays,
   LogOut,
   Menu,
-  MessageSquare,
   Shield,
   Users,
   X,
 } from 'lucide-react'
 import { ThemeToggle } from '@/components/layout/ThemeToggle'
 import AdminEventsSection from '@/components/admin/AdminEventsSection'
-import AdminForumSection from '@/components/admin/AdminForumSection'
 import AdminUsersSection from '@/components/admin/AdminUsersSection'
 import { useAuthStore } from '@/lib/auth-store'
 import { cn } from '@/lib/utils'
@@ -20,11 +18,10 @@ interface AdminPageProps {
   onLogout: () => void
 }
 
-type AdminSection = 'users' | 'forum' | 'events'
+type AdminSection = 'users' | 'events'
 
 const navItems = [
   { id: 'users' as const, label: 'Users', icon: Users },
-  { id: 'forum' as const, label: 'Forum', icon: MessageSquare },
   { id: 'events' as const, label: 'Events', icon: CalendarDays },
 ]
 
@@ -140,7 +137,7 @@ export default function AdminPage({ onLogout }: AdminPageProps) {
             </div>
           </header>
           <main className="mx-auto w-full max-w-[1280px] flex-1 p-4 sm:p-6 lg:p-8">
-            {section === 'users' ? <AdminUsersSection /> : section === 'forum' ? <AdminForumSection /> : <AdminEventsSection />}
+            {section === 'users' ? <AdminUsersSection /> : <AdminEventsSection />}
           </main>
         </div>
       </div>
