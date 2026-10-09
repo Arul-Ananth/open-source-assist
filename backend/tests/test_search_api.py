@@ -294,7 +294,90 @@ async def test_authenticated_user_triggers_hybrid_search(monkeypatch: pytest.Mon
             assert data["total"] >= 1
             full_names = [item["full_name"] for item in data["items"]]
             assert "awesome-org/brand-new-library" in full_names
+            item = next(it for it in data["items"] if it["full_name"] == "awesome-org/brand-new-library")
+            # Semantic score should be computed via real cosine similarity (> 0.0)
+            assert item["scores"]["semantic_score"] > 0.0
     finally:
         app.dependency_overrides.pop(get_optional_current_user, None)
+
+
+@pytest.mark.asyncio
+async def test_hybrid_search_patches_existing_repository_metadata(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When GitHub returns a repository that already exists in Qdrant, its live stats are patched."""
+    from backend.api.dependencies import get_optional_current_user
+    from backend.services.github_client import GitHubClient
+
+    app.dependency_overrides[get_optional_current_user] = lambda: {
+        "user_id": "00000000-0000-0000-0000-000000000002",
+        "username": "oauth_user_2",
+        "email": "oauth2@example.com",
+        "github_access_token": "gho_test_mock_token_456",
+    }
+
+    # Ingest existing repo with older star count (10,000 stars)
+    transport = ASGITransport(app=app)
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        await client.post(
+            "/api/v1/internal/ingest",
+            json={
+                "repositories": [
+                    {
+                        "repo_id": 42,
+                        "full_name": "facebook/react",
+                        "html_url": "https://github.com/facebook/react",
+                        "description": "The library for web and native user interfaces",
+                        "language": "JavaScript",
+                        "stars": 10000,
+                        "forks": 2000,
+                        "open_issues": 100,
+                        "license": "MIT",
+                        "topics": ["react", "ui", "javascript"],
+                        "pushed_at": "2026-01-01T00:00:00Z",
+                        "readme_summary": "React is a JavaScript library for building user interfaces.",
+                    }
+                ]
+            },
+        )
+
+        # Mock GitHub returning the same repo with updated live stats (220,000 stars, 45,000 forks)
+        mock_live_repo = {
+            "id": 42,
+            "full_name": "facebook/react",
+            "html_url": "https://github.com/facebook/react",
+            "description": "The library for web and native user interfaces",
+            "language": "JavaScript",
+            "stargazers_count": 220000,
+            "forks_count": 45000,
+            "open_issues_count": 800,
+            "license": {"spdx_id": "MIT"},
+            "topics": ["react", "ui", "javascript"],
+            "pushed_at": "2026-10-07T12:00:00Z",
+        }
+
+        async def mock_github_search(*args, **kwargs):
+            return [mock_live_repo]
+
+        monkeypatch.setattr(GitHubClient, "search_repositories_query", mock_github_search)
+
+        resp = await client.post(
+            "/api/v1/search",
+            json={"query": "react user interfaces", "limit": 10},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] >= 1
+
+        react_item = next(it for it in data["items"] if it["full_name"] == "facebook/react")
+        # Stars, forks, and issues should be patched from live GitHub data
+        assert react_item["stars"] == 220000
+        assert react_item["forks"] == 45000
+        assert react_item["open_issues"] == 800
+        assert react_item["pushed_at"] == "2026-10-07T12:00:00Z"
+        # Popularity score should be recalculated based on live 220,000 stars (max anchor 1.0)
+        assert react_item["scores"]["popularity_score"] == 1.0
+
+    app.dependency_overrides.pop(get_optional_current_user, None)
 
 
