@@ -10,7 +10,6 @@ import {
   Search,
   Users,
   Compass,
-  Gift,
   CalendarDays,
   X,
   Send,
@@ -33,7 +32,6 @@ import {
   ForumSection,
   OverviewSection,
   ContributorsSection,
-  RedeemSection,
 } from '@/components/dashboard'
 import { LearningSection } from '@/components/learning'
 
@@ -50,7 +48,6 @@ const navItems = [
   { id: 'events', label: 'Events', icon: CalendarDays },
   { id: 'forum', label: 'Forum', icon: MessagesSquare },
   { id: 'contributors', label: 'Contributors', icon: Users },
-  { id: 'redeem', label: 'Redeem Points', icon: Gift },
   { id: 'docs', label: 'Documentation', icon: BookMarked },
 ] as const
 
@@ -212,8 +209,6 @@ export default function DashboardPage({ onLogout }: DashboardPageProps) {
             <ForumSection />
           ) : section === 'contributors' ? (
             <ContributorsSection />
-          ) : section === 'redeem' ? (
-            <RedeemSection />
           ) : section === 'docs' ? (
             <DocsSection />
           ) : (

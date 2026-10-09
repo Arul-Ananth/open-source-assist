@@ -1,7 +1,7 @@
 import {
   Compass,
   Map,
-  Gift,
+  MessagesSquare,
   ChevronRight,
   Sparkles,
 } from 'lucide-react'
@@ -14,7 +14,7 @@ interface QuickActionsSectionProps {
 
 export function QuickActionsSection({
   onNavigate,
-  totalPoints = 0,
+  totalPoints: _totalPoints = 0,
   topLanguage = 'TypeScript',
 }: QuickActionsSectionProps) {
   const actions = [
@@ -33,11 +33,11 @@ export function QuickActionsSection({
       action: () => onNavigate('roadmap'),
     },
     {
-      title: 'Redeem Contribution Points',
-      desc: `Spend your ${totalPoints.toLocaleString()} points on mentorship & swag`,
-      icon: Gift,
+      title: 'Join Community Forum',
+      desc: 'Collaborate with maintainers and peers',
+      icon: MessagesSquare,
       color: 'text-amber-400 bg-amber-500/10 border-amber-500/30',
-      action: () => onNavigate('redeem'),
+      action: () => onNavigate('forum'),
     },
     {
       title: 'Interactive Git Learning',

@@ -212,7 +212,7 @@ export function OverviewSection({ onNavigate }: OverviewSectionProps) {
                 {isLoading ? '...' : (stats?.total_points ?? 0).toLocaleString()}
               </p>
             </div>
-            <p className="mt-1 text-[11px] text-muted-foreground">Redeemable for rewards</p>
+            <p className="mt-1 text-[11px] text-muted-foreground">Earned from contributions</p>
           </CardContent>
         </Card>
 

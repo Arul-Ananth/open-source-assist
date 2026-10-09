@@ -79,8 +79,8 @@ export function AuthDialog({ open, onClose, initialMode = 'login' }: AuthDialogP
 
     const email = String(formData.get(`${screen}-email`) ?? '').trim()
     if (!email) {
-      next[`${screen}-email`] = 'Email is required.'
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      next[`${screen}-email`] = isLogin ? 'Email or username is required.' : 'Email is required.'
+    } else if (isSignup && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
       next[`${screen}-email`] = 'Please enter a valid email address.'
     }
 
@@ -501,11 +501,11 @@ export function AuthDialog({ open, onClose, initialMode = 'login' }: AuthDialogP
                 />
               )}
               <Field
-                label="Email"
+                label={isLogin ? "Email or Username" : "Email"}
                 id={`${screen}-email`}
-                type="email"
-                placeholder="you@example.com"
-                autoComplete="email"
+                type={isLogin ? "text" : "email"}
+                placeholder={isLogin ? "you@example.com or admin" : "you@example.com"}
+                autoComplete={isLogin ? "username" : "email"}
                 error={errors[`${screen}-email`]}
               />
               {isSignup ? (
