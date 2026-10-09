@@ -22,6 +22,7 @@ dependencies = [
     "qdrant-client>=1.19.1",
     "sqlalchemy",
     "uvicorn[standard]>=0.53.0",
+    "redis>=8.1.0",
 ]
 
 [dependency-groups]

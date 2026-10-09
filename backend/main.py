@@ -52,16 +52,20 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     except Exception as exc:
         print(f"Notice: Qdrant startup collection check: {exc}")
 
-    try:
-        await init_db()
-    except Exception as exc:
-        print(f"Notice: PostgreSQL startup table check: {exc}")
+    if settings.RUN_MIGRATIONS_ON_STARTUP:
+        try:
+            await init_db()
+        except Exception as exc:
+            print(f"Notice: PostgreSQL startup table check: {exc}")
 
-    purge_task = asyncio.create_task(_otp_purge_loop())
+    purge_task: asyncio.Task[None] | None = None
+    if settings.RUN_MIGRATIONS_ON_STARTUP:
+        purge_task = asyncio.create_task(_otp_purge_loop())
 
     yield
 
-    purge_task.cancel()
+    if purge_task:
+        purge_task.cancel()
     await qdrant_service.close()
     await engine.dispose()
 
